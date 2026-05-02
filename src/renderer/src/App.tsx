@@ -10,6 +10,7 @@ import RoomModal from "./components/modals/RoomModal"
 import ShoutPopup from "./components/popups/ShoutPopup"
 import WhisperPopup from "./components/popups/WhisperPopup"
 import { debugLog } from "./lib/debug"
+import { initTypingChannel, teardownTypingChannel } from "./lib/typing-channel"
 
 function withTimeout<T>(promise: Promise<T>, label: string, ms = 8000): Promise<T> {
   let timeoutId: number | undefined
@@ -380,29 +381,54 @@ export default function App() {
     }
   }, [ready, user?.id])
 
-  // Real-time presence: track who is online in the current space
+  // Real-time presence + typing: track online users and who is currently typing
   useEffect(() => {
     if (!currentSpace || !user) return
 
     const channelName = `space-presence:${currentSpace.id}`
     const channel = supabase.channel(channelName, { config: { broadcast: { self: false } } })
 
-    const refreshOnlineUsers = () => {
-      const allOnline = channel.presenceState()
-      const ids = Object.values(allOnline)
-        .flat()
-        .map((s) => (s as unknown as { user_id: string }).user_id)
-        .filter(Boolean)
-      useSpaceStore.getState().setOnlineUsers(new Set(ids))
+    const setTyping = (userId: string) => {
+      const current = useSpaceStore.getState().typingUsers
+      useSpaceStore.getState().setTypingUsers(new Set([...current, userId]))
     }
 
+    const clearTyping = (userId: string) => {
+      const current = useSpaceStore.getState().typingUsers
+      const next = new Set(current)
+      next.delete(userId)
+      useSpaceStore.getState().setTypingUsers(next)
+    }
+
+    // Listen to online/offline and typing events
     channel
       .on("broadcast", { event: "online" }, () => {
         if (!useSpaceStore.getState().currentSpace) return
-        refreshOnlineUsers()
+        const allOnline = channel.presenceState()
+        const ids = Object.values(allOnline)
+          .flat()
+          .map((s) => (s as unknown as { user_id: string }).user_id)
+          .filter(Boolean)
+        useSpaceStore.getState().setOnlineUsers(new Set(ids))
       })
       .on("broadcast", { event: "offline" }, () => {
-        refreshOnlineUsers()
+        const allOnline = channel.presenceState()
+        const ids = Object.values(allOnline)
+          .flat()
+          .map((s) => (s as unknown as { user_id: string }).user_id)
+          .filter(Boolean)
+        useSpaceStore.getState().setOnlineUsers(new Set(ids))
+      })
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const uid = (payload.payload as unknown as { user_id: string }).user_id
+        if (uid === user.id) return // don't track self
+        setTyping(uid)
+        // Auto-remove after 4s
+        window.setTimeout(() => clearTyping(uid), 4000)
+      })
+      .on("broadcast", { event: "stop_typing" }, (payload) => {
+        const uid = (payload.payload as unknown as { user_id: string }).user_id
+        clearTyping(uid)
       })
       .subscribe(async (status) => {
         if (status !== "SUBSCRIBED") return
@@ -410,13 +436,28 @@ export default function App() {
         channel.send({ type: "broadcast", event: "online", payload: { user_id: user.id } })
       })
 
-    refreshOnlineUsers()
+    // Sync initial presence
+    const allOnline = channel.presenceState()
+    const ids = Object.values(allOnline)
+      .flat()
+      .map((s) => (s as unknown as { user_id: string }).user_id)
+      .filter(Boolean)
+    useSpaceStore.getState().setOnlineUsers(new Set(ids))
 
     return () => {
       channel.send({ type: "broadcast", event: "offline", payload: { user_id: user.id } })
       supabase.removeChannel(channel)
       useSpaceStore.getState().setOnlineUsers(new Set())
+      useSpaceStore.getState().setTypingUsers(new Set())
+      teardownTypingChannel()
     }
+  }, [currentSpace?.id, user?.id])
+
+  // Init typing channel when space changes
+  useEffect(() => {
+    if (!currentSpace || !user) return
+    initTypingChannel(currentSpace.id, user.id)
+    return () => teardownTypingChannel()
   }, [currentSpace?.id, user?.id])
 
   const loadingReasons = getLoadingReasons({ loading, ready, user, spacesReady, profile, currentSpace })

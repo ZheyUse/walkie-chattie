@@ -7,6 +7,7 @@ import ImagePreview from "./ImagePreview"
 import GifPicker from "./GifPicker"
 import WhisperSuggest from "./WhisperSuggest"
 import { debugLog } from "../../lib/debug"
+import { sendTyping, sendStopTyping } from "../../lib/typing-channel"
 
 export default function ChatInput() {
   const [value, setValue] = useState("")
@@ -109,6 +110,7 @@ export default function ChatInput() {
 
     debugLog({ source: "chat", message: "Message sent", details: { messageId: message?.id, type: cmd } })
     if (message) prependMessage(message)
+    if (profile) sendStopTyping(profile.id)
     setValue("")
     setPendingImage(null)
     setPendingGif(null, null)
@@ -125,6 +127,7 @@ export default function ChatInput() {
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value)
+    if (profile) sendTyping(profile.id)
     const cursor = e.target.selectionStart || 0
     const lastAt = e.target.value.lastIndexOf("@", cursor - 1)
     if (lastAt >= 0) {

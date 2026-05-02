@@ -1,5 +1,6 @@
 import MessageList from "../chat/MessageList"
 import ChatInput from "../chat/ChatInput"
+import TypingIndicator from "../chat/TypingIndicator"
 import { useSpaceStore } from "../../stores/space.store"
 
 export default function ChatArea() {
@@ -11,6 +12,7 @@ export default function ChatArea() {
         <span className="text-text-lo text-lg">{currentSpace ? currentSpace.avatar_emoji : ""} {currentSpace?.name || "Loading..."}</span>
       </div>
       <MessageList />
+      <TypingIndicator />
       <ChatInput />
     </div>
   )

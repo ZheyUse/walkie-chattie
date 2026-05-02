@@ -24,12 +24,14 @@ interface SpaceState {
   settingsPanelOpen: boolean
   joinOrCreateModalOpen: boolean
   onlineUsers: Set<string>
+  typingUsers: Set<string>
   setSpace: (s: Space | null) => void
   setSpaces: (s: Space[]) => void
   setMembers: (m: Member[]) => void
   toggleSettings: () => void
   setJoinOrCreateModalOpen: (open: boolean) => void
   setOnlineUsers: (u: Set<string>) => void
+  setTypingUsers: (u: Set<string>) => void
 }
 
 export const useSpaceStore = create<SpaceState>((set) => ({
@@ -39,10 +41,12 @@ export const useSpaceStore = create<SpaceState>((set) => ({
   settingsPanelOpen: false,
   joinOrCreateModalOpen: false,
   onlineUsers: new Set(),
+  typingUsers: new Set(),
   setSpace: (s) => set({ currentSpace: s }),
   setSpaces: (s) => set({ spaces: s }),
   setMembers: (m) => set({ members: m }),
   toggleSettings: () => set((s) => ({ settingsPanelOpen: !s.settingsPanelOpen })),
   setJoinOrCreateModalOpen: (open) => set({ joinOrCreateModalOpen: open }),
   setOnlineUsers: (u) => set({ onlineUsers: u }),
+  setTypingUsers: (u) => set({ typingUsers: u }),
 }))
