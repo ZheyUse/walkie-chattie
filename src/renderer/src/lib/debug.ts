@@ -1,0 +1,115 @@
+export type DebugLevel = "info" | "warn" | "error"
+
+export type DebugLogEntry = {
+  id: number
+  timestamp: string
+  level: DebugLevel
+  source: string
+  message: string
+  details?: unknown
+}
+
+type DebugPayload = {
+  level?: DebugLevel
+  source?: string
+  message: string
+  details?: unknown
+}
+
+function serializeDetails(details: unknown) {
+  if (details instanceof Error) {
+    return { name: details.name, message: details.message, stack: details.stack }
+  }
+
+  if (details && typeof details === "object") {
+    try {
+      return JSON.parse(JSON.stringify(details))
+    } catch {
+      return String(details)
+    }
+  }
+
+  return details
+}
+
+export function debugLog({ level = "info", source = "renderer", message, details }: DebugPayload) {
+  if (!window.api?.logDebug) return
+  window.api.logDebug({
+    level,
+    source,
+    message,
+    details: serializeDetails(details),
+  })
+}
+
+function elementLabel(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return "Unknown element"
+
+  const element = target.closest("button, a, input, textarea, select, [role='button']") as HTMLElement | null
+  if (!element) return target.tagName.toLowerCase()
+
+  const explicitLabel = element.getAttribute("aria-label") || element.getAttribute("title")
+  const text = element.innerText?.replace(/\s+/g, " ").trim()
+  const placeholder = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+    ? element.placeholder
+    : ""
+
+  return explicitLabel || text || placeholder || element.tagName.toLowerCase()
+}
+
+export function installDebugInstrumentation() {
+  if (!window.api) return
+
+  window.addEventListener("error", (event) => {
+    debugLog({
+      level: "error",
+      source: "renderer",
+      message: "Uncaught renderer error",
+      details: {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: serializeDetails(event.error),
+      },
+    })
+  })
+
+  window.addEventListener("unhandledrejection", (event) => {
+    debugLog({
+      level: "error",
+      source: "renderer",
+      message: "Unhandled renderer promise rejection",
+      details: serializeDetails(event.reason),
+    })
+  })
+
+  document.addEventListener("click", (event) => {
+    debugLog({
+      source: "ui",
+      message: "Clicked UI control",
+      details: {
+        label: elementLabel(event.target),
+        tag: event.target instanceof HTMLElement ? event.target.tagName.toLowerCase() : "unknown",
+      },
+    })
+  }, true)
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "F1") {
+      event.preventDefault()
+      debugLog({ source: "ui", message: "F1 pressed; opening debug window" })
+      window.api.openDebugWindow()
+    }
+  })
+
+  debugLog({
+    source: "renderer",
+    message: "Debug instrumentation installed",
+    details: {
+      route: window.location.hash || window.location.pathname,
+      userAgent: navigator.userAgent,
+      platform: window.api.platform,
+    },
+  })
+}

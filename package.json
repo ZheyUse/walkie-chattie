@@ -1,0 +1,57 @@
+{
+  "name": "walkie-chattie",
+  "version": "1.0.0",
+  "description": "Walkie-Chattie â€” Steam-dark desktop chat app",
+  "main": "./out/main/index.js",
+  "author": "Walkie-Chattie Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "make": "electron-vite build && electron-builder --win --config",
+    "make:dir": "electron-vite build && electron-builder --win --dir --config"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@tailwindcss/forms": "^0.5.9",
+    "@types/node": "^22.9.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "electron": "^32.3.3",
+    "electron-builder": "^25.1.8",
+    "electron-store": "^8.2.0",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.47",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.walkiechattie.app",
+    "productName": "Walkie-Chattie",
+    "directories": {
+      "output": "out/make"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

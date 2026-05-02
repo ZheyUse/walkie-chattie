@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' http://localhost:5174;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        img-src 'self' data: blob: file: https:;
+        media-src 'self' data: blob: https:;
+        connect-src 'self' http://localhost:5174 ws://localhost:5174 https://*.supabase.co wss://*.supabase.co https://tenor.googleapis.com;
+        object-src 'none';
+        base-uri 'self';
+      "
+    />
+    <title>Walkie-Chattie</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-bg-deep text-text-hi font-body antialiased">
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
