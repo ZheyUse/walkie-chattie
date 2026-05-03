@@ -3,8 +3,10 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSpaceStore, type Member } from '../../stores/space.store'
 import { useChatStore } from '../../stores/chat.store'
+import { debugLog } from '../../lib/debug'
 import Avatar from '../ui/Avatar'
 import ContextMeter from '../ui/ContextMeter'
+import DeleteSpaceModal from '../modals/DeleteSpaceModal'
 
 const EMOJIS = [
   "🦅", "🔥", "⚡", "🎮", "🎯", "🎲",
@@ -16,12 +18,15 @@ export default function SettingsPanel() {
   const { profile } = useAuthStore()
   const { currentSpace, members, setSpace, setSpaces, spaces, setMembers, onlineUsers } = useSpaceStore()
   const { setMessages, searchQuery, setSearchQuery } = useChatStore()
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showNukeModal, setShowNukeModal] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [nameInput, setNameInput] = useState("")
   const [avatarPicker, setAvatarPicker] = useState(false)
   const [avatarInput, setAvatarInput] = useState("")
+  const [includeInShout, setIncludeInShout] = useState(() => {
+    return localStorage.getItem('include_self_shout') === 'true'
+  })
   const isAdmin = currentSpace?.owner_id === profile?.id
 
   const onlineMembers = members.filter(m => onlineUsers.has(m.user_id))
@@ -43,6 +48,12 @@ export default function SettingsPanel() {
     setAvatarPicker(false)
   }
 
+  const handleToggleIncludeInShout = () => {
+    const next = !includeInShout
+    setIncludeInShout(next)
+    localStorage.setItem('include_self_shout', String(next))
+  }
+
   const handleBlacklist = async (member: Member) => {
     if (!currentSpace) return
     await supabase.from('space_members').update({ blacklisted: true }).
@@ -58,50 +69,90 @@ export default function SettingsPanel() {
     setConfirmReset(false)
   }
 
-  const handleDeleteSpace = async () => {
-    if (!currentSpace || !profile) return
+  const handleDeleteSpace = async (): Promise<void> => {
+    if (!currentSpace || !profile) {
+      debugLog({ level: 'error', source: 'settings', message: 'Nuke space aborted: missing currentSpace or profile' })
+      return
+    }
+
+    const spaceName = currentSpace.name
+    const spaceId = currentSpace.id
+    debugLog({ level: 'info', source: 'settings', message: `[nuke] Starting — space "${spaceName}" (${spaceId})`, details: { userId: profile.id } })
+
+    debugLog({ level: 'info', source: 'settings', message: `[nuke] Deleting space_members for ${spaceId}` })
+    const membersResult = await supabase.from('space_members').delete().eq('space_id', currentSpace.id)
+    if (membersResult.error) {
+      debugLog({ level: 'error', source: 'settings', message: `[nuke] Failed to delete space_members`, details: membersResult.error })
+      throw membersResult.error
+    }
+    const memberCount = membersResult.count ?? 0
+    debugLog({ level: 'info', source: 'settings', message: `[nuke] space_members deleted (${memberCount} rows)`, details: { spaceId, count: memberCount } })
+
+    debugLog({ level: 'info', source: 'settings', message: `[nuke] Deleting space row ${spaceId}`, details: { ownerId: profile.id, spaceOwnerId: currentSpace.owner_id, match: currentSpace.owner_id === profile.id } })
+    const spaceResult = await supabase.from('spaces').delete().eq('id', currentSpace.id).eq('owner_id', profile.id)
+    debugLog({ level: 'info', source: 'settings', message: `[nuke] delete response`, details: { spaceResult } })
+    if (spaceResult.error) {
+      debugLog({ level: 'error', source: 'settings', message: `[nuke] Failed to delete space row`, details: spaceResult.error })
+      throw spaceResult.error
+    }
+    debugLog({ level: 'info', source: 'settings', message: `[nuke] verify step — querying id: ${spaceId}`, details: { verifySpaceId: spaceId, currentSpaceId: currentSpace?.id } })
+
+    // Supabase DELETE returns 204 even when RLS blocks — verify the row is actually gone
+    const { data: verifyRow } = await supabase.from('spaces').select('id').eq('id', spaceId).maybeSingle()
+    debugLog({ level: 'info', source: 'settings', message: `[nuke] verify result`, details: { verifyRow } })
+    if (verifyRow) {
+      debugLog({
+        level: 'error',
+        source: 'settings',
+        message: `[nuke] Space still exists after delete — likely RLS blocking. Check "spaces" table RLS policies for DELETE as owner.`,
+        details: { spaceId, verifyRow },
+      })
+      throw new Error(`RLS blocked delete of space "${spaceName}" — check DELETE policy on "spaces" table for owner`)
+    }
+
+    debugLog({ level: 'success', source: 'settings', message: `[nuke] Space "${spaceName}" nuked successfully`, details: { spaceId } })
+
     const { data: remain } = await supabase
       .from('space_members').select('space_id')
       .eq('user_id', profile.id).eq('blacklisted', false)
       .neq('space_id', currentSpace.id)
 
-    await supabase.from('spaces').delete().eq('id', currentSpace.id).eq('owner_id', profile.id)
-
+    let nextSpace: typeof currentSpace = null
     if (remain && remain.length > 0) {
       const { data: next } = await supabase
         .from('spaces').select('*').eq('id', remain[0].space_id).maybeSingle()
-      if (next) setSpace(next)
-      else setSpace(null)
-    } else {
-      setSpace(null)
+      nextSpace = next
     }
+
+    setSpace(nextSpace)
     setMessages([])
-    setConfirmDelete(false)
-    setSpaces(spaces.filter(s => s.id !== currentSpace.id))
+    setShowNukeModal(false)
+    setSpaces(nextSpace ? spaces.filter(s => s.id !== currentSpace.id) : [])
   }
 
   const handleLeave = async () => {
     if (!currentSpace || !profile) return
+    // Remove own membership FIRST so there's no orphan
+    await supabase.from('space_members').delete().eq('space_id', currentSpace.id).eq('user_id', profile.id)
+
     const { data: remain } = await supabase
       .from('space_members').select('space_id')
       .eq('user_id', profile.id).eq('blacklisted', false)
       .neq('space_id', currentSpace.id)
 
-    await supabase.from('space_members').delete().eq('space_id', currentSpace.id).eq('user_id', profile.id)
-
+    let nextSpace = null
     if (remain && remain.length > 0) {
       const { data: next } = await supabase
         .from('spaces').select('*').eq('id', remain[0].space_id).maybeSingle()
-      if (next) setSpace(next)
-      else setSpace(null)
-    } else {
-      setSpace(null)
+      nextSpace = next
     }
+    setSpace(nextSpace)
     setMessages([])
-    setSpaces(spaces.filter(s => s.id !== currentSpace.id))
+    setSpaces(nextSpace ? spaces.filter(s => s.id !== currentSpace.id) : [])
   }
 
   return (
+    <>
     <div className='w-72 bg-bg-base border-l border-border-lo flex flex-col h-full overflow-hidden'>
       <div className='p-4 border-b border-border-lo'>
         <h2 className='font-display font-bold text-text-hi'>Settings</h2>
@@ -159,6 +210,29 @@ export default function SettingsPanel() {
           </div>
         </div>
       )}
+
+      {/* Chat preferences */}
+      <div className='p-4 border-b border-border-lo'>
+        <p className='text-text-lo text-xs font-body uppercase tracking-wider mb-2'>Preferences</p>
+        <button
+          onClick={handleToggleIncludeInShout}
+          className='w-full flex items-center justify-between py-1 group'
+        >
+          <div className='text-left'>
+            <p className='text-text-hi text-sm font-body'>Include in shout</p>
+            <p className='text-text-lo text-xs'>Receive your own /shout messages</p>
+          </div>
+          <div className={
+            'relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ml-2 ' +
+            (includeInShout ? 'bg-accent' : 'bg-bg-surface border border-border-md')
+          }>
+            <span className={
+              'inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ' +
+              (includeInShout ? 'translate-x-5' : 'translate-x-0.5')
+            } />
+          </div>
+        </button>
+      </div>
 
       {/* Search */}
       <div className='p-4 border-b border-border-lo'>
@@ -224,14 +298,7 @@ export default function SettingsPanel() {
             <button onClick={() => setConfirmReset(true)} className='text-text-lo text-sm hover:text-text-hi text-left'>Reset Chat</button>
           )}
 
-          {confirmDelete ? (
-            <div className='flex gap-2'>
-              <button onClick={handleDeleteSpace} className='btn-shout text-xs py-1.5 flex-1'>Confirm Delete</button>
-              <button onClick={() => setConfirmDelete(false)} className='input-field text-xs py-1.5 flex-1'>Cancel</button>
-            </div>
-          ) : (
-            <button onClick={() => setConfirmDelete(true)} className='text-red-400 text-sm hover:underline text-left'>Delete Space</button>
-          )}
+          <button onClick={() => setShowNukeModal(true)} className='text-red-400 text-sm hover:underline text-left'>Nuke Space</button>
         </div>
       )}
 
@@ -244,5 +311,13 @@ export default function SettingsPanel() {
         </div>
       )}
     </div>
+    {showNukeModal && (
+      <DeleteSpaceModal
+        spaceName={currentSpace?.name || ""}
+        onConfirm={handleDeleteSpace}
+        onClose={() => setShowNukeModal(false)}
+      />
+    )}
+    </>
   )
 }

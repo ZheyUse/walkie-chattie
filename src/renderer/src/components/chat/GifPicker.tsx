@@ -2,14 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import { searchGifs, getTrendingGifs, type TenorGif } from '../../lib/tenor'
 import { useChatStore } from '../../stores/chat.store'
 
-interface Props { onClose: () => void }
+interface Props {
+  onClose: () => void
+  position?: 'top' | 'bottom'
+}
 
-export default function GifPicker({ onClose }: Props) {
-  var _a = useState(''), q = _a[0], setQ = _a[1]
-  var _b = useState([]), gifs = _b[0], setGifs = _b[1]
-  var _c = useState(true), loading = _c[0], setLoading = _c[1]
-  var debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
-  var setPendingGif = useChatStore(s => s.setPendingGif)
+export default function GifPicker({ onClose, position = 'top' }: Props) {
+  const [q, setQ] = useState('')
+  const [gifs, setGifs] = useState<TenorGif[]>([])
+  const [loading, setLoading] = useState(true)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const setPendingGif = useChatStore(s => s.setPendingGif)
 
   useEffect(function() {
     getTrendingGifs(20).then(function(g) { setGifs(g); setLoading(false) })

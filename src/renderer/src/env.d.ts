@@ -15,7 +15,7 @@ interface Window {
     getOAuthRedirectUri: () => string
     openDebugWindow: () => void
     logDebug: (entry: {
-      level: 'info' | 'warn' | 'error'
+      level: 'info' | 'warn' | 'error' | 'success'
       source: string
       message: string
       details?: unknown
@@ -23,15 +23,16 @@ interface Window {
     getDebugLogs: () => Promise<Array<{
       id: number
       timestamp: string
-      level: 'info' | 'warn' | 'error'
+      level: 'info' | 'warn' | 'error' | 'success'
       source: string
       message: string
       details?: unknown
     }>>
+    clearDebugLogs: () => void
     onDebugLog: (callback: (entry: {
       id: number
       timestamp: string
-      level: 'info' | 'warn' | 'error'
+      level: 'info' | 'warn' | 'error' | 'success'
       source: string
       message: string
       details?: unknown

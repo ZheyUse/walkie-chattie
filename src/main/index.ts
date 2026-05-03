@@ -309,6 +309,7 @@ app.whenReady().then(() => {
     addDebugLog(entry.level || "info", entry.source || "renderer", entry.message || "Renderer event", entry.details)
   })
   ipcMain.handle("debug-get-logs", () => debugLogs)
+  ipcMain.on("debug-clear", () => { debugLogs.length = 0 })
 
   createWindow()
   createTray()

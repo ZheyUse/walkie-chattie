@@ -17,6 +17,10 @@ function explain(entry: DebugLogEntry) {
     return "Something failed here. Check the message and details for the failing step, returned error, or stack trace."
   }
 
+  if (entry.level === "success") {
+    return "Operation completed successfully. Details show what was accomplished."
+  }
+
   if (entry.message.toLowerCase().includes("clicked")) {
     return "A user action happened. The label shows which visible control was pressed."
   }
@@ -43,6 +47,7 @@ export default function DebugPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [copiedAll, setCopiedAll] = useState(false)
+  const [cleared, setCleared] = useState(false)
 
   useEffect(() => {
     window.api.getDebugLogs().then((entries) => setLogs(dedupeLogs(entries)))
@@ -94,6 +99,13 @@ export default function DebugPage() {
     window.setTimeout(() => setCopiedAll(false), 1500)
   }
 
+  const clearLogs = () => {
+    window.api.clearDebugLogs?.()
+    setLogs([])
+    setCleared(true)
+    window.setTimeout(() => setCleared(false), 1500)
+  }
+
   const showFilteredCount = filtered.length !== logs.length
   const copiedText = showFilteredCount
     ? `Copied ${filtered.length} (filtered)`
@@ -109,6 +121,7 @@ export default function DebugPage() {
         <div className="flex items-center gap-2 text-xs text-text-lo">
           {showFilteredCount && <span>{filtered.length} shown</span>}
           <span className={showFilteredCount ? "text-text-lo" : ""}>{logs.length} logs</span>
+          <span className="text-green-400">{logs.filter((entry) => entry.level === "success").length} success</span>
           <span className="text-red-400">{logs.filter((entry) => entry.level === "error").length} errors</span>
           <button
             onClick={copyAllLogs}
@@ -132,6 +145,27 @@ export default function DebugPage() {
               </>
             )}
           </button>
+          <button
+            onClick={clearLogs}
+            className="flex items-center gap-1.5 h-7 px-2 rounded border border-border-md text-text-md hover:text-shout hover:border-shout transition-colors"
+            title="Clear all logs"
+          >
+            {cleared ? (
+              <>
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                Cleared
+              </>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+                Clear
+              </>
+            )}
+          </button>
         </div>
       </header>
 
@@ -149,6 +183,7 @@ export default function DebugPage() {
         >
           <option value="all">All levels</option>
           <option value="info">Info</option>
+          <option value="success">Success</option>
           <option value="warn">Warnings</option>
           <option value="error">Errors</option>
         </select>
@@ -172,7 +207,7 @@ export default function DebugPage() {
                 (selected?.id === entry.id ? "bg-accent/10" : "")}
             >
               <span className={"text-xs font-display uppercase " + (
-                entry.level === "error" ? "text-red-400" : entry.level === "warn" ? "text-yellow-300" : "text-accent"
+                entry.level === "error" ? "text-red-400" : entry.level === "warn" ? "text-yellow-300" : entry.level === "success" ? "text-green-400" : "text-accent"
               )}>{entry.level}</span>
               <span className="text-xs text-text-lo truncate">{entry.source}</span>
               <span className="min-w-0">

@@ -11,7 +11,7 @@ export type PopupData = {
 export type DebugLogEntry = {
   id: number
   timestamp: string
-  level: 'info' | 'warn' | 'error'
+  level: 'info' | 'warn' | 'error' | 'success'
   source: string
   message: string
   details?: unknown
@@ -38,6 +38,7 @@ const api = {
   logDebug: (entry: Omit<DebugLogEntry, 'id' | 'timestamp'>) =>
     ipcRenderer.send('debug-log', entry),
   getDebugLogs: () => ipcRenderer.invoke('debug-get-logs') as Promise<DebugLogEntry[]>,
+  clearDebugLogs: () => ipcRenderer.send('debug-clear'),
   onDebugLog: (callback: (entry: DebugLogEntry) => void) => {
     const listener = (_: Electron.IpcRendererEvent, entry: DebugLogEntry) => callback(entry)
     ipcRenderer.on('debug-log-entry', listener)

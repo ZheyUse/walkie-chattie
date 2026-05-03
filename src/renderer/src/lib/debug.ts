@@ -1,4 +1,4 @@
-export type DebugLevel = "info" | "warn" | "error"
+export type DebugLevel = "info" | "warn" | "error" | "success"
 
 export type DebugLogEntry = {
   id: number

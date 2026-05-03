@@ -214,6 +214,7 @@ export default function App() {
   useEffect(() => {
     if (isDebugRoute) {
       debugLog({ source: "app", message: "Debug route opened; skipping app auth bootstrap" })
+      setReady(true)
       return
     }
 
@@ -262,8 +263,8 @@ export default function App() {
 
           if (user) {
             debugLog({ source: "auth", message: "OAuth fragment session restored", details: { userId: user.id } })
+            // Don't call loadProfile here — setSession triggers onAuthStateChange which handles it
             setSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: 3600, token_type: 'bearer', user })
-            loadProfile(user.id, setProfile)
             history.replaceState(null, '', window.location.pathname)
             return true
           }
@@ -464,6 +465,7 @@ export default function App() {
   const isLoadingScreen = loading || !ready || (user && !spacesReady)
 
   useEffect(() => {
+    if (isDebugRoute) return
     if (!isLoadingScreen) return
 
     debugLog({

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const e = require\\('electron'\\); console.log\\('Electron version:', e.versions.electron\\)\")",
+      "Bash(node -e \"const e = require\\('electron'\\); console.log\\(Object.keys\\(e\\)\\)\")",
+      "Bash(ls node_modules/electron/dist/)",
+      "Bash(ls \"node_modules/electron/dist/resources/\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const plugin = require\\('electron-vite'\\); console.log\\(plugin.externalizeDepsPlugin ? 'has externalizeDepsPlugin' : 'no externalizeDepsPlugin'\\)\")",
+      "Bash(npx electron-vite *)"
+    ]
+  }
+}
