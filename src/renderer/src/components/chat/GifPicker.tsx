@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { searchGifs, getTrendingGifs, type TenorGif } from '../../lib/tenor'
+import { searchGifs, getTrendingGifs, type GiphyGif } from '../../lib/giphy'
 import { useChatStore } from '../../stores/chat.store'
 
 interface Props {
@@ -7,9 +7,9 @@ interface Props {
   position?: 'top' | 'bottom'
 }
 
-export default function GifPicker({ onClose, position = 'top' }: Props) {
+export default function GifPicker({ onClose }: Props) {
   const [q, setQ] = useState('')
-  const [gifs, setGifs] = useState<TenorGif[]>([])
+  const [gifs, setGifs] = useState<GiphyGif[]>([])
   const [loading, setLoading] = useState(true)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const setPendingGif = useChatStore(s => s.setPendingGif)
@@ -28,7 +28,7 @@ export default function GifPicker({ onClose, position = 'top' }: Props) {
     return function() { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [q])
 
-  var select = function(g: TenorGif) {
+  function select(g: GiphyGif) {
     setPendingGif(g.url, g.preview || g.url)
     onClose()
   }

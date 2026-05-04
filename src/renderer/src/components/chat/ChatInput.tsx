@@ -110,12 +110,55 @@ export default function ChatInput() {
     const trimmed = value.trim()
     const cmd = detectCommand(trimmed)
     let theContent = trimmed
+    let targetUserId: string | null = null
+    let targetNickname: string | null = null
     if (cmd === "shout") theContent = trimmed.slice(7)
-    if (cmd === "tap") theContent = trimmed.slice(5)
+    if (cmd === "tap") {
+      theContent = trimmed.slice(5)
+      debugLog({ source: "chat", message: "Tap after slice", details: { content: theContent } })
+      const mentionMatch = theContent.match(/^@(\S+)\s+/)
+      if (mentionMatch) {
+        const rawNick = mentionMatch[1]
+        debugLog({ source: "chat", message: "Tap mention parsed", details: { rawNick, membersCount: members.length, firstMember: members[0] } })
+
+        // Try local members list first (with defensive null checks)
+        const targetMember = members.find(m =>
+          (m.profile?.nickname?.toLowerCase() === rawNick.toLowerCase()) ||
+          (m as any).profile_id === profile?.id
+        )
+        debugLog({ source: "chat", message: "Tap local lookup", details: {
+          matched: !!targetMember,
+          targetProfile: targetMember?.profile,
+          targetProfileId: targetMember?.profile_id || (targetMember as any)?.profile?.id,
+        } })
+
+        if (targetMember?.profile?.id) {
+          targetUserId = targetMember.profile.id
+          targetNickname = targetMember.profile.nickname
+          theContent = theContent.slice(mentionMatch[0].length)
+          debugLog({ source: "chat", message: "Tap resolved from local", details: { targetUserId, targetNickname } })
+        } else {
+          // Fallback: query DB directly for profile
+          const { data: targetProfile } = await supabase
+            .from('profiles')
+            .select('id, nickname')
+            .ilike('nickname', rawNick)
+            .single()
+          if (targetProfile) {
+            targetUserId = targetProfile.id
+            targetNickname = targetProfile.nickname
+            theContent = theContent.slice(mentionMatch[0].length)
+            debugLog({ source: "chat", message: "Tap resolved from DB", details: { targetUserId, targetNickname } })
+          }
+        }
+      } else {
+        debugLog({ source: "chat", message: "Tap: no valid @mention found", details: { contentAfterSlice: theContent } })
+      }
+    }
 
     const tempId = `temp-${Date.now()}-${Math.random()}`
 
-    debugLog({ source: "chat", message: "Sending message", details: { type: cmd, tempId } })
+    debugLog({ source: "chat", message: "Sending message", details: { type: cmd, tempId, targetUserId } })
 
     let imageUrl: string | null = null
     if (pendingImage) {
@@ -139,7 +182,8 @@ export default function ChatInput() {
       content: theContent || null,
       image_url: imageUrl || null,
       gif_url: pendingGifUrl || null,
-      target_user_id: null,
+      target_user_id: targetUserId,
+      target_nickname: targetNickname,
       created_at: new Date().toISOString(),
       status: 'sending' as const,
     }
@@ -153,15 +197,18 @@ export default function ChatInput() {
       content: theContent || null,
       image_url: imageUrl || null,
       gif_url: pendingGifUrl || null,
+      target_user_id: targetUserId,
     }
 
     const insertId = await doInsertMessage(tempId, payload)
     if (profile) sendStopTyping(profile.id)
 
     // Trigger shout popup directly (works even if realtime subscription missed the INSERT)
+    debugLog({ source: "chat", message: "Shout check", details: { insertId, cmd, includeSelf: localStorage.getItem('include_self_shout') } })
     if (insertId && cmd === 'shout') {
       const includeSelf = localStorage.getItem('include_self_shout') === 'true'
       if (includeSelf) {
+        debugLog({ source: "chat", message: "showShout called", details: { sender: profile.nickname, message: theContent } })
         window.api.showShout({
           sender: profile.nickname,
           message: theContent || '',
@@ -172,17 +219,29 @@ export default function ChatInput() {
       }
     }
 
+    // Trigger tap popup for the tapped user
+    if (insertId && cmd === 'tap' && targetUserId && targetNickname) {
+      const includeSelf = localStorage.getItem('include_self_shout') === 'true'
+      if (includeSelf) {
+        debugLog({ source: "chat", message: "showTap called", details: { sender: profile.nickname, targetNickname, message: theContent } })
+        window.api.showTap({
+          sender: profile.nickname,
+          message: theContent || '',
+          gifUrl: pendingGifUrl || undefined,
+        })
+      }
+    }
+
     if (insertId) {
       setValue("")
       setPendingImage(null)
       setPendingGif(null, null)
       textareaRef.current?.focus()
-      // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
     }
-  }, [value, pendingImage, pendingGifUrl, currentSpace, profile, prependMessage, doInsertMessage, setPendingImage, setPendingGif])
+  }, [value, pendingImage, pendingGifUrl, currentSpace, profile, members, prependMessage, doInsertMessage, setPendingImage, setPendingGif])
 
   // Auto-resize textarea height based on content
   useEffect(() => {

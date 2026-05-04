@@ -13,6 +13,8 @@
     "make:dir": "electron-vite build && electron-builder --win --dir --config"
   },
   "dependencies": {
+    "@giphy/js-fetch-api": "^5.8.0",
+    "@giphy/react-components": "^10.1.2",
     "@supabase/supabase-js": "^2.45.4",
     "zustand": "^5.0.1"
   },

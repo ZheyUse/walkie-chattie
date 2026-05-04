@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface PopupData { sender: string; message: string; gifUrl?: string }
 
@@ -10,64 +10,104 @@ function getPopupData(): PopupData {
   return { sender: "?", message: "" }
 }
 
+function getTapFontSize(message: string) {
+  const len = message.length
+  if (len <= 20) return "4.5vw"
+  if (len <= 50) return "3.2vw"
+  if (len <= 100) return "2.4vw"
+  return "1.8vw"
+}
+
 export default function TapPopup() {
   const [data] = useState(getPopupData)
+  const [countdown, setCountdown] = useState(5)
+
+  useEffect(() => {
+    const tick = setInterval(() => setCountdown(c => c - 1), 1000)
+    const close = setTimeout(() => window.api.closePopup(), 5000)
+    return () => { clearInterval(tick); clearTimeout(close) }
+  }, [])
 
   return (
-    <div className="h-screen bg-bg-deep flex flex-col overflow-hidden" style={{ background: 'radial-gradient(ellipse at 20% 0%, rgba(139,92,246,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(26,159,255,0.05) 0%, transparent 60%), #0a0e1a' }}>
-      {/* Header */}
+    <div
+      className="h-screen w-screen flex items-center justify-center"
+      style={{ background: 'transparent' }}
+      onClick={() => window.api.closePopup()}
+    >
       <div
-        className="px-6 py-4 flex items-center justify-between"
+        className="flex flex-col overflow-hidden"
         style={{
-          borderBottom: '1px solid rgba(139,92,246,0.2)',
-          background: 'rgba(139,92,246,0.08)',
-          backdropFilter: 'blur(12px)',
+          width: '80vw',
+          height: '80vh',
+          background: '#0c0a18',
+          border: '2px solid rgba(139,92,246,0.35)',
+          borderRadius: '16px',
         }}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3">
-          {/* Tap icon */}
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(139,92,246,0.15)', boxShadow: '0 0 12px rgba(139,92,246,0.2)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {/* Header */}
+        <div
+          className="flex-shrink-0 flex items-center gap-3 px-8 py-5"
+          style={{ borderBottom: '1px solid rgba(139,92,246,0.15)' }}
+        >
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22c1.5 0 2-1 2-2.5S13.5 15 12 15s-2 2.5-2 2.5S10.5 22 12 22z"/>
               <path d="M12 15C9 15 7 12 7 9c0-1.5.5-3 2-4 .5-.5 1-.5 2-.5 1.5 0 3 1 3 3 0-2 1.5-3 3-3s3 .5 3 2c0 2-3 4-3 6"/>
             </svg>
           </div>
-          <span className="font-display font-bold text-2xl uppercase tracking-widest" style={{
-            background: 'linear-gradient(90deg, rgba(167,139,250,1) 0%, rgba(139,92,246,1) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>TAP</span>
-          <span className="font-display text-sm" style={{ color: 'rgba(139,92,246,0.5)' }}>from {data.sender}</span>
-        </div>
-        <button
-          onClick={() => window.api.closePopup()}
-          className="text-sm rounded-lg px-3 py-1.5 transition-all duration-150"
-          style={{ color: 'rgba(139,92,246,0.5)', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}
-        >
-          × Dismiss
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 gap-6">
-        <div className="relative max-w-lg text-center">
-          {/* Glow backdrop */}
-          <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: 'rgba(139,92,246,0.06)', filter: 'blur(24px)', transform: 'scale(1.2)' }} />
-          <p className="relative font-body text-lg italic leading-relaxed" style={{ color: 'rgba(167,139,250,0.85)' }}>
-            "{data.message}"
-          </p>
-        </div>
-        {data.gifUrl && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 24px rgba(139,92,246,0.15)' }}>
-            <img src={data.gifUrl} alt="GIF" className="max-h-32 object-contain" />
+          <span className="font-display font-bold text-base uppercase tracking-widest" style={{ color: 'rgba(167,139,250,0.8)' }}>
+            Tap
+          </span>
+          <div className="ml-auto flex items-center gap-2.5">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ background: 'rgba(139,92,246,0.7)', boxShadow: '0 0 8px rgba(139,92,246,0.7)' }}
+            />
+            <span className="font-display text-sm" style={{ color: 'rgba(139,92,246,0.6)' }}>
+              From {data.sender}
+            </span>
           </div>
-        )}
+        </div>
 
-        {/* Dismiss hint */}
-        <p className="font-body text-xs" style={{ color: 'rgba(139,92,246,0.3)' }}>
-          Press anywhere to close
-        </p>
+        {/* Main content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-16 overflow-hidden">
+          <p
+            className="font-body text-center leading-relaxed"
+            style={{
+              fontSize: getTapFontSize(data.message),
+              color: 'rgba(167,139,250,0.93)',
+              fontStyle: 'italic',
+              maxWidth: '92%',
+              letterSpacing: '-0.01em',
+              wordBreak: 'break-word',
+            }}
+          >
+            {data.message}
+          </p>
+
+          {data.gifUrl && (
+            <div className="mt-10 rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(139,92,246,0.2)' }}>
+              <img src={data.gifUrl} alt="GIF" className="max-h-64 object-contain" />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex-shrink-0 flex items-center justify-between px-8 py-4"
+          style={{ borderTop: '1px solid rgba(139,92,246,0.15)' }}
+        >
+          <span className="font-body text-sm" style={{ color: 'rgba(139,92,246,0.4)' }}>
+            Auto-closes in {countdown}s · Click anywhere to dismiss
+          </span>
+          <span className="font-display text-base font-medium" style={{ color: 'rgba(139,92,246,0.7)' }}>
+            — {data.sender}
+          </span>
+        </div>
       </div>
     </div>
   )

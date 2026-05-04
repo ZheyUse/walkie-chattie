@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from "electron"
+import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, screen } from "electron"
 import { join, resolve } from "path"
 
 // isDev: detect if running in dev mode
@@ -237,14 +237,17 @@ app.whenReady().then(() => {
     }
   })
 
-  // IPC: shout popup — full-screen dramatic overlay
+  // IPC: shout popup — 80% of screen with transparent background
   ipcMain.on("show-shout", (_, data) => {
     addDebugLog("info", "main-window", "Opening shout popup", data)
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize
     const win = new BrowserWindow({
-      width: 900, height: 600,
-      alwaysOnTop: true, frame: false,
-      skipTaskbar: true, resizable: false,
-      backgroundColor: "#0a0e1a",
+      width: Math.round(width * 0.8),
+      height: Math.round(height * 0.8),
+      transparent: true,
+      frame: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
       webPreferences: {
         preload: join(__dirname, "../preload/index.js"),
         contextIsolation: true,
@@ -257,14 +260,17 @@ app.whenReady().then(() => {
     win.on("closed", () => clearTimeout(timeout))
   })
 
-  // IPC: whisper/tap popup
+  // IPC: whisper/tap popup — 80% of screen with transparent background
   ipcMain.on("show-whisper", (_, data) => {
     addDebugLog("info", "main-window", "Opening tap popup", data)
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize
     const win = new BrowserWindow({
-      width: 420, height: 230,
-      alwaysOnTop: true, frame: false,
-      skipTaskbar: true, resizable: false,
-      backgroundColor: "#1e2530",
+      width: Math.round(width * 0.8),
+      height: Math.round(height * 0.8),
+      transparent: true,
+      frame: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
       webPreferences: {
         preload: join(__dirname, "../preload/index.js"),
         contextIsolation: true,
