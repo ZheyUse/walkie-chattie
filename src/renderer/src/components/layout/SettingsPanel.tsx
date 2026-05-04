@@ -165,7 +165,7 @@ export default function SettingsPanel() {
 
           {/* Space ID */}
           <div className="flex items-center gap-1 mt-1">
-            <span className="font-mono text-[10px]" style={{ color: 'rgba(90,100,120,0.5)' }}>{currentSpace?.id?.slice(0, 8)}</span>
+            <span className="font-body text-[10px]" style={{ color: 'rgba(90,100,120,0.5)' }}>{currentSpace?.id?.slice(0, 8)}</span>
             <button
               onClick={() => { navigator.clipboard.writeText(currentSpace?.id || ''); setCopiedId(true); toast('Space ID copied') }}
               className="flex items-center transition-colors"
@@ -253,7 +253,7 @@ export default function SettingsPanel() {
                   <Avatar nickname={m.nickname} color={m.avatar_color} size="sm" showStatus online />
                   <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.8)' }}>{m.nickname}</span>
                   {m.role === 'admin' && (
-                    <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.7)', border: '1px solid rgba(139,92,246,0.2)' }}>admin</span>
+                    <span className="text-[9px] font-body uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.7)', border: '1px solid rgba(139,92,246,0.2)' }}>admin</span>
                   )}
                   {isAdmin && m.user_id !== profile?.id && (
                     <button onClick={() => handleBlacklist(m)} className="text-[10px] font-body transition-colors" style={{ color: 'rgba(239,68,68,0.5)' }}>block</button>
@@ -272,7 +272,7 @@ export default function SettingsPanel() {
                   <Avatar nickname={m.nickname} color={m.avatar_color} size="sm" showStatus />
                   <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.55)' }}>{m.nickname}</span>
                   {m.role === 'admin' && (
-                    <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.08)', color: 'rgba(139,92,246,0.4)', border: '1px solid rgba(139,92,246,0.1)' }}>admin</span>
+                    <span className="text-[9px] font-body uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.08)', color: 'rgba(139,92,246,0.4)', border: '1px solid rgba(139,92,246,0.1)' }}>admin</span>
                   )}
                   {isAdmin && m.user_id !== profile?.id && (
                     <button onClick={() => handleBlacklist(m)} className="text-[10px] font-body transition-colors" style={{ color: 'rgba(239,68,68,0.35)' }}>block</button>

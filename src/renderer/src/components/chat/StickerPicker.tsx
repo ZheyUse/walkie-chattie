@@ -76,7 +76,7 @@ export default function StickerPicker({ onClose, onInsert }: { onClose: () => vo
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-lg transition-all duration-150"
+              className="px-2.5 py-1 text-[10px] font-body uppercase tracking-wider rounded-lg transition-all duration-150"
               style={{
                 background: activeCategory === cat ? 'rgba(139,92,246,0.2)' : 'transparent',
                 color: activeCategory === cat ? 'rgba(167,139,250,0.9)' : 'rgba(90,100,120,0.5)',
@@ -112,7 +112,7 @@ export default function StickerPicker({ onClose, onInsert }: { onClose: () => vo
         ) : (
           <>
             {/* Category header */}
-            <div className="text-[10px] font-mono uppercase tracking-wider mb-1.5 px-1" style={{ color: 'rgba(139,92,246,0.4)' }}>
+            <div className="text-[10px] font-body uppercase tracking-wider mb-1.5 px-1" style={{ color: 'rgba(139,92,246,0.4)' }}>
               {activeCategory}
             </div>
             <div className="grid grid-cols-6 gap-0.5">

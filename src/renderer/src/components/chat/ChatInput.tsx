@@ -281,7 +281,7 @@ export default function ChatInput() {
         <div className="relative">
           <Tooltip label="GIF">
             <button
-              onClick={(e) => { e.stopPropagation(); closeAllPopovers(); setShowGif(v => !v) }}
+              onClick={(e) => { e.stopPropagation(); const next = !showGif; closeAllPopovers(); if (next) setShowGif(true) }}
               className="gif-btn flex-shrink-0 w-9 h-9 flex items-center justify-center text-text-lo hover:text-text-hi rounded transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -301,7 +301,7 @@ export default function ChatInput() {
         <div className="relative">
           <Tooltip label="Stickers">
             <button
-              onClick={(e) => { e.stopPropagation(); closeAllPopovers(); setShowStickers(v => !v) }}
+              onClick={(e) => { e.stopPropagation(); const next = !showStickers; closeAllPopovers(); if (next) setShowStickers(true) }}
               className="sticker-btn flex-shrink-0 w-9 h-9 flex items-center justify-center text-text-lo hover:text-text-hi rounded transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -322,7 +322,7 @@ export default function ChatInput() {
         <div className="relative">
           <Tooltip label="Emoji">
             <button
-              onClick={(e) => { e.stopPropagation(); closeAllPopovers(); setShowEmoji(v => !v) }}
+              onClick={(e) => { e.stopPropagation(); const next = !showEmoji; closeAllPopovers(); if (next) setShowEmoji(true) }}
               className="emoji-btn flex-shrink-0 w-9 h-9 flex items-center justify-center text-text-lo hover:text-text-hi rounded transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -372,9 +372,9 @@ export default function ChatInput() {
       {/* Hint line (Discord-style) */}
       <div className="flex justify-between items-center mt-1 px-1">
         <p className="text-text-lo text-xs">
-          <kbd className="font-mono text-[10px] bg-bg-surface border border-border-lo rounded px-1">Enter</kbd>
+          <kbd className="font-body text-[10px] bg-bg-surface border border-border-lo rounded px-1">Enter</kbd>
           {' '}to send ·{' '}
-          <kbd className="font-mono text-[10px] bg-bg-surface border border-border-lo rounded px-1">Shift+Enter</kbd>
+          <kbd className="font-body text-[10px] bg-bg-surface border border-border-lo rounded px-1">Shift+Enter</kbd>
           {' '}for new line
         </p>
         <p className="text-text-lo text-xs">

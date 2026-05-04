@@ -169,7 +169,7 @@ export default function AuthPage() {
             {/* Decorative divider */}
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.2), transparent)' }} />
-              <span className="text-[10px] font-mono" style={{ color: 'rgba(90,100,120,0.4)' }}>secured</span>
+              <span className="text-[10px] font-body" style={{ color: 'rgba(90,100,120,0.4)' }}>secured</span>
               <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.2), transparent)' }} />
             </div>
           </div>

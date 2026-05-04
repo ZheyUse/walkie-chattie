@@ -37,7 +37,7 @@ export default function ContextMeter() {
 
   return (
     <div className='px-4 py-3' style={{ borderTop: '1px solid rgba(139,92,246,0.06)' }}>
-      <div className='flex justify-between text-[10px] font-mono mb-1.5' style={{ color: textColor }}>
+      <div className='flex justify-between text-[10px] font-body mb-1.5' style={{ color: textColor }}>
         <span>Context window</span>
         <span>{used.toLocaleString()} / {limit.toLocaleString()}</span>
       </div>

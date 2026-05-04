@@ -109,7 +109,7 @@ function JoinView({ onJoined }: JoinViewProps) {
         <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Space ID</label>
         <input value={spaceId} onChange={e => setSpaceId(e.target.value)}
           maxLength={10} placeholder="e.g. 1bsd3454aw"
-          className="input-field font-mono" style={{ fontFamily: 'var(--font-mono, monospace)' }} />
+          className="input-field font-body" />
       </div>
       <button type="submit" disabled={spaceId.trim().length < 4 || loading}
         className="w-full relative flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold font-display tracking-wide transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40"

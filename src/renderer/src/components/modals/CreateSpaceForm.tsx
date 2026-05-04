@@ -64,12 +64,12 @@ export default function CreateSpaceForm() {
         <input value={name} onChange={e => setName(e.target.value.slice(0, 30))}
           maxLength={30} placeholder="e.g. Mission Control"
           className="input-field" />
-        <p className="text-[10px] mt-1 font-mono" style={{ color: 'rgba(90,100,120,0.4)' }}>{name.length}/30</p>
+        <p className="text-[10px] mt-1 font-body" style={{ color: 'rgba(90,100,120,0.4)' }}>{name.length}/30</p>
       </div>
 
       <div>
         <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Space ID</label>
-        <div className="px-3 py-2 rounded-xl font-display font-mono text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(139,92,246,0.5)' }}>
+        <div className="px-3 py-2 rounded-xl font-display font-body text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(139,92,246,0.5)' }}>
           {spaceId}
         </div>
       </div>
