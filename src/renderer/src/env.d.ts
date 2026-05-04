@@ -8,6 +8,7 @@ interface Window {
     closeWindow: () => void
     showShout: (data: { sender: string; message: string; gifUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
     showTap: (data: { sender: string; message: string; gifUrl?: string; color?: string }) => void
+    showBroadcast: (data: { sender: string; message: string; gifUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
     closePopup: () => void
     openSystemBrowser: (url: string) => void
     onOAuthCallback: (callback: (url: string) => void) => void

@@ -11,40 +11,52 @@ interface Props {
 export default function WhisperSuggest({ query, members, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  const queryLower = query.toLowerCase()
+  const atAllMatch = 'all'.startsWith(queryLower)
+
   const filtered = members.filter(function(m) {
-    return m.nickname.toLowerCase().includes(query.toLowerCase())
+    return m.nickname.toLowerCase().includes(queryLower)
   })
+
+  // Full list including @all as virtual first item
+  const allItems: Array<{ type: 'all'; label: string } | { type: 'member'; member: Member }> = []
+  if (atAllMatch || queryLower === '') allItems.push({ type: 'all', label: '@all' })
+  filtered.forEach(m => allItems.push({ type: 'member', member: m }))
 
   useEffect(() => { setSelectedIndex(0) }, [query])
 
+  // Close on click outside
   useEffect(function() {
     var h = function(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
     document.addEventListener('mousedown', h)
     return function() { document.removeEventListener('mousedown', h) }
   }, [onClose])
 
-  useEffect(function() {
-    function k(e: KeyboardEvent) {
-      if (e.key === 'Escape') { onClose(); return }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setSelectedIndex(i => Math.min(i + 1, filtered.length - 1))
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setSelectedIndex(i => Math.max(i - 1, 0))
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault()
-        e.stopPropagation()
-        if (filtered[selectedIndex]) onSelect(filtered[selectedIndex].nickname)
-      }
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') { onClose(); return }
+    const count = allItems.length
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIndex(i => Math.min(i + 1, count - 1))
     }
-    document.addEventListener('keydown', k)
-    return function() { document.removeEventListener('keydown', k) }
-  }, [filtered, selectedIndex, onSelect, onClose])
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(i => Math.max(i - 1, 0))
+    }
+    // Tab is handled by ChatInput — do NOT handle here
+    if (e.key === 'Tab') return
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      const item = allItems[selectedIndex]
+      if (!item) return
+      if (item.type === 'all') onSelect('__bold__@all')
+      else onSelect(item.member.nickname)
+    }
+  }
 
-  if (filtered.length === 0) return null
+  if (allItems.length === 0) return null
 
   return (
     <div ref={ref}
@@ -63,12 +75,20 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
         boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         backdropFilter: 'blur(16px)',
         overflow: 'hidden',
-      }}>
-      {filtered.map(function(m, i) {
+      }}
+      onKeyDown={handleKeyDown}
+    >
+      {allItems.map(function(item, i) {
+        const isAll = item.type === 'all'
+        const m = isAll ? null : item.member
         return (
           <button
-            key={m.user_id}
-            onMouseDown={function(e) { e.preventDefault(); onSelect(m.nickname) }}
+            key={isAll ? '__all__' : m!.user_id}
+            onMouseDown={function(e) {
+              e.preventDefault()
+              if (isAll) onSelect('__bold__@all')
+              else onSelect(m!.nickname)
+            }}
             onMouseEnter={() => setSelectedIndex(i)}
             className="w-full px-3 py-2 flex items-center gap-2 transition-colors text-left"
             style={{
@@ -76,20 +96,37 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
               background: i === selectedIndex ? 'rgba(139,92,246,0.18)' : 'transparent',
             }}
           >
-            <div className="w-6 h-6 rounded-full text-xs font-display font-bold text-bg-deep flex items-center justify-center flex-shrink-0"
-                style={{ background: m.avatar_color }}>
-              {(m.nickname[0] || '?').toUpperCase()}</div>
-            <span
-              className="text-sm font-body flex-1 truncate"
-              style={{ color: i === selectedIndex ? 'rgba(232,234,237,1)' : 'rgba(232,234,237,0.8)' }}
-            >
-              {m.nickname}
-            </span>
-            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{
-              background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
-              boxShadow: '0 0 4px rgba(139,92,246,0.5)',
-              opacity: i === selectedIndex ? 1 : 0.5,
-            }} />
+            {isAll ? (
+              <>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 font-display font-bold text-[10px]"
+                  style={{ background: 'rgba(34,197,94,0.2)', color: 'rgba(34,197,94,0.8)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                  @
+                </div>
+                <span className="text-sm font-display font-bold flex-1" style={{ color: 'rgba(34,197,94,0.9)' }}>
+                  all
+                </span>
+                <span className="text-[10px] font-body px-1.5 py-0.5 rounded" style={{ background: 'rgba(34,197,94,0.1)', color: 'rgba(34,197,94,0.6)' }}>
+                  mentions everyone
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="w-6 h-6 rounded-full text-xs font-display font-bold text-bg-deep flex items-center justify-center flex-shrink-0"
+                  style={{ background: m!.avatar_color }}>
+                  {(m!.nickname[0] || '?').toUpperCase()}</div>
+                <span
+                  className="text-sm font-body flex-1 truncate"
+                  style={{ color: i === selectedIndex ? 'rgba(232,234,237,1)' : 'rgba(232,234,237,0.8)' }}
+                >
+                  {m!.nickname}
+                </span>
+                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
+                  boxShadow: '0 0 4px rgba(139,92,246,0.5)',
+                  opacity: i === selectedIndex ? 1 : 0.5,
+                }} />
+              </>
+            )}
           </button>
         )
       })}

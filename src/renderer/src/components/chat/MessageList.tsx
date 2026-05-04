@@ -107,6 +107,19 @@ export default function MessageList() {
             window.api.showTap({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined })
           }
         }
+        if (msg.type === 'all') {
+          const includeSelf = localStorage.getItem('include_self_shout') === 'true'
+          const isOwn = msg.sender_id === profileIdRef.current
+          if (includeSelf || !isOwn) {
+            window.api.showBroadcast({
+              sender: msg.sender_nickname,
+              message: msg.content || '',
+              gifUrl: msg.gif_url || undefined,
+              spaceName: currentSpace?.name,
+              spaceIcon: currentSpace?.avatar_emoji,
+            })
+          }
+        }
 
         const isOwn = msg.sender_id === profile?.id
         if (!isOwn) {

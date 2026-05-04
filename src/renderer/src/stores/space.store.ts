@@ -32,6 +32,7 @@ interface SpaceState {
   setJoinOrCreateModalOpen: (open: boolean) => void
   setOnlineUsers: (u: Set<string>) => void
   setTypingUsers: (u: Set<string>) => void
+  isMuted: () => boolean
 }
 
 export const useSpaceStore = create<SpaceState>((set) => ({
@@ -49,4 +50,14 @@ export const useSpaceStore = create<SpaceState>((set) => ({
   setJoinOrCreateModalOpen: (open) => set({ joinOrCreateModalOpen: open }),
   setOnlineUsers: (u) => set({ onlineUsers: u }),
   setTypingUsers: (u) => set({ typingUsers: u }),
+  isMuted: () => {
+    const space = useSpaceStore.getState().currentSpace
+    if (!space) return false
+    const raw = localStorage.getItem(`space-muted:${space.id}`)
+    if (!raw) return false
+    const expiry = parseInt(raw, 10)
+    if (isNaN(expiry)) return false
+    if (expiry === 0) return true // "until I change it"
+    return expiry > Date.now()
+  },
 }))

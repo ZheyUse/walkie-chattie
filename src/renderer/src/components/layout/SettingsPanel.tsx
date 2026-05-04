@@ -11,12 +11,28 @@ import ContextMeter from '../ui/ContextMeter'
 import DeleteSpaceModal from '../modals/DeleteSpaceModal'
 import RenameModal from '../modals/RenameModal'
 import ResetChatModal from '../modals/ResetChatModal'
+import MuteModal from '../modals/MuteModal'
+import SpaceDetails from '../modals/SpaceDetails'
 
 const AVATAR_EMOJIS = [
   "🚀", "🛸", "🌌", "⭐", "🌙", "🪐",
   "🔮", "💎", "⚡", "🔥", "🎯", "🎮",
   "🛡️", "🔭", "🌊", "⚔️",
 ]
+
+function getMuteKey(spaceId: string) { return `space-muted:${spaceId}` }
+function getMuteExpiry(spaceId: string): number | null {
+  const raw = localStorage.getItem(getMuteKey(spaceId))
+  if (!raw) return null
+  const expiry = parseInt(raw, 10)
+  if (isNaN(expiry)) return null
+  if (expiry === 0) return 0 // forever muted
+  return expiry
+}
+function isMuted(spaceId: string) {
+  const expiry = getMuteExpiry(spaceId)
+  return expiry === 0 || (expiry !== null && expiry > Date.now())
+}
 
 export default function SettingsPanel() {
   const { profile } = useAuthStore()
@@ -31,6 +47,11 @@ export default function SettingsPanel() {
   const [avatarInput, setAvatarInput] = useState("")
   const [includeInShout, setIncludeInShout] = useState(() => localStorage.getItem('include_self_shout') === 'true')
   const [copiedId, setCopiedId] = useState(false)
+  const [showMuteModal, setShowMuteModal] = useState(false)
+  const [showSpaceDetails, setShowSpaceDetails] = useState(false)
+  const [muteState, setMuteState] = useState(() => !!currentSpace && isMuted(currentSpace.id))
+
+  const isMutedNow = muteState
 
   useEffect(() => {
     if (!copiedId) return
@@ -69,6 +90,22 @@ export default function SettingsPanel() {
     const next = !includeInShout
     setIncludeInShout(next)
     localStorage.setItem('include_self_shout', String(next))
+  }
+
+  const handleMute = (value: string) => {
+    localStorage.setItem(getMuteKey(currentSpace!.id), value === 'forever' ? '0' : String(Date.now() + (
+      value === '15m' ? 15 * 60 * 1000 :
+      value === '1h' ? 60 * 60 * 1000 :
+      value === '24h' ? 24 * 60 * 60 * 1000 : 0
+    )))
+    setMuteState(true)
+    toast(`Notifications muted for ${currentSpace?.name}`)
+  }
+
+  const handleUnmute = () => {
+    localStorage.removeItem(getMuteKey(currentSpace!.id))
+    setMuteState(false)
+    toast(`Notifications unmuted`)
   }
 
   const handleBlacklist = async (member: Member) => {
@@ -212,6 +249,34 @@ export default function SettingsPanel() {
         {/* Preferences */}
         <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
           <p className="text-[10px] font-body uppercase tracking-wider mb-2" style={{ color: 'rgba(90,100,120,0.4)' }}>Preferences</p>
+
+          {/* Mute toggle — show Mute when unmuted, Unmute when muted */}
+          {isMutedNow ? (
+            <button onClick={handleUnmute} className="w-full flex items-center justify-between py-1.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'rgba(251,191,36,0.15)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '11px', color: 'rgba(251,191,36,0.8)' }}>notifications_off</span>
+                </div>
+                <p className="text-sm font-body" style={{ color: 'rgba(232,234,237,0.8)' }}>
+                  Unmute {currentSpace?.name}
+                </p>
+              </div>
+            </button>
+          ) : (
+            <button onClick={() => setShowMuteModal(true)} className="w-full flex items-center justify-between py-1.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '11px', color: 'rgba(139,92,246,0.6)' }}>notifications</span>
+                </div>
+                <p className="text-sm font-body" style={{ color: 'rgba(232,234,237,0.8)' }}>
+                  Mute {currentSpace?.name}
+                </p>
+              </div>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'rgba(90,100,120,0.4)' }}>chevron_right</span>
+            </button>
+          )}
+
+          {/* Include in shout */}
           <button onClick={handleToggleIncludeInShout} className="w-full flex items-center justify-between py-1.5 group">
             <div className="flex items-center gap-2.5">
               <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
@@ -224,6 +289,19 @@ export default function SettingsPanel() {
             <div className={"relative inline-flex h-5 w-9 items-center rounded-full transition-all flex-shrink-0 " + (includeInShout ? 'shadow-glow-purple' : '')} style={{ background: includeInShout ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)' : 'rgba(255,255,255,0.08)' }}>
               <span className="inline-block h-3.5 w-3.5 rounded-full bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transform: includeInShout ? 'translateX(16px)' : 'translateX(0)', transition: 'transform 0.2s ease' }} />
             </div>
+          </button>
+
+          {/* View space details */}
+          <button onClick={() => setShowSpaceDetails(true)} className="w-full flex items-center justify-between py-1.5 group">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '11px', color: 'rgba(139,92,246,0.6)' }}>info</span>
+              </div>
+              <div>
+                <p className="text-sm font-body" style={{ color: 'rgba(232,234,237,0.8)' }}>View all media, Files, Links</p>
+              </div>
+            </div>
+            <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'rgba(90,100,120,0.4)' }}>chevron_right</span>
           </button>
         </div>
 
@@ -298,7 +376,7 @@ export default function SettingsPanel() {
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-all hover:bg-red-500/5 text-left"
               style={{ color: 'rgba(239,68,68,0.45)' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'inherit' }}>delete</span>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'inherit' }}>delete_forever</span>
               Nuke Space
             </button>
           </div>
@@ -318,8 +396,16 @@ export default function SettingsPanel() {
         )}
       </div>
 
+      {/* Space Details overlay */}
+      {showSpaceDetails && (
+        <div className="absolute inset-0 z-10" style={{ background: 'rgba(11,14,24,0.97)' }}>
+          <SpaceDetails onBack={() => setShowSpaceDetails(false)} />
+        </div>
+      )}
+
       {showNukeModal && <DeleteSpaceModal spaceName={currentSpace?.name || ""} onConfirm={handleDeleteSpace} onDeleted={handleDeleteDone} onClose={() => setShowNukeModal(false)} />}
       {showResetModal && <ResetChatModal spaceName={currentSpace?.name || ""} onConfirm={handleResetChat} onDone={() => setShowResetModal(false)} onClose={() => setShowResetModal(false)} />}
+      {showMuteModal && <MuteModal spaceName={currentSpace?.name || ""} onConfirm={handleMute} onClose={() => setShowMuteModal(false)} />}
       {renameConfirm && <RenameModal oldName={renameConfirm.from} newName={renameConfirm.to} onConfirm={confirmRename} onClose={() => { setRenameConfirm(null); setEditingName(false) }} />}
     </>
   )

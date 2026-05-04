@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { debugLog } from '../lib/debug'
 
-export type MessageType = 'chat' | 'shout' | 'whisper' | 'tap' | 'system'
+export type MessageType = 'chat' | 'shout' | 'whisper' | 'tap' | 'system' | 'all'
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error'
 
 export interface MessageReaction {

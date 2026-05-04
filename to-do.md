@@ -1,15 +1,15 @@
-support drag and drop files in the chat panel
-fix /shout
-add /tap its like a shout but only the tapped user can see the shout so basically we will change /whisper to /tap
+1. next fix the link message being sent in the message the clickable link I shared for example
+https://www.dicebear.com/how-to-use/js-library/
+but the link only goes up to https://w
 
-/whisper when /whisper @user it will open a private combo so like instead of space chatting its 1 v 1 chatting
+2. remove the <spacename> in the header
 
-chat placeholder must only be Message...
-then add
-auto suggest commands when typing / like discord
-where when I type / it will show suggestions like /shout
-and auto suggest users when typing @
+3. change the system title to Pulsar
 
+4. separate online and offline members to the left side, so its like inside the chat panel.
+in the settings panel put the Search messages at the very top of the settings 
 
-integrate https://www.dicebear.com/how-to-use/js-library/
+5. integrate https://www.dicebear.com/how-to-use/js-library/
 Avatar Creation
+
+6. Fix shout and tap must be 1 at a time, wait for the current shout modal to finish showing before the next one

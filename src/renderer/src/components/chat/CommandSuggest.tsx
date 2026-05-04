@@ -9,6 +9,8 @@ interface Command {
 const COMMANDS: Command[] = [
   { id: 'shout', label: '/shout', description: 'Broadcast to the entire space' },
   { id: 'tap', label: '/tap', description: 'Tap a user to send a private shout' },
+  { id: 'kick', label: '/kick', description: 'Remove a member from this space (admin only)' },
+  { id: 'all', label: '/all', description: 'Mention everyone in the space' },
 ]
 
 interface Props {

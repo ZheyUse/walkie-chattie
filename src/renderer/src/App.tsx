@@ -11,6 +11,7 @@ import ToastContainer from "./components/ui/ToastContainer"
 import InAppNotification from "./components/ui/InAppNotification"
 import ShoutPopup from "./components/popups/ShoutPopup"
 import TapPopup from "./components/popups/TapPopup"
+import BroadcastPopup from "./components/popups/BroadcastPopup"
 import { debugLog } from "./lib/debug"
 import { initTypingChannel, teardownTypingChannel } from "./lib/typing-channel"
 
@@ -160,7 +161,7 @@ async function loadExistingSpace(
   await loadSpaceMembers(space.id, setMembers)
 }
 
-function getPopupType(): "shout" | "tap" | null {
+function getPopupType(): "shout" | "tap" | "broadcast" | null {
   try {
     const hash = window.location.hash
     const parts = hash.split("/")
@@ -509,6 +510,7 @@ export default function App() {
   if (isDebugRoute) return <DebugPage />
   if (popupType === "shout") return <ShoutPopup />
   if (popupType === "tap") return <TapPopup />
+  if (popupType === "broadcast") return <BroadcastPopup />
 
   if (isLoadingScreen) {
     return <div className="h-screen bg-bg-deep flex items-center justify-center">

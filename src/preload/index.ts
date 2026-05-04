@@ -7,7 +7,7 @@ export type PopupData = {
   color?: string
   spaceName?: string
   spaceIcon?: string
-  type: 'shout' | 'whisper' | 'tap'
+  type: 'shout' | 'whisper' | 'tap' | 'broadcast'
 }
 
 export type NotificationPayload = {
@@ -36,6 +36,8 @@ const api = {
     ipcRenderer.send('show-shout', data),
   showTap: (data: Omit<PopupData, 'type'>) =>
     ipcRenderer.send('show-whisper', data),
+  showBroadcast: (data: Omit<PopupData, 'type'>) =>
+    ipcRenderer.send('show-broadcast', data),
   closePopup: () => ipcRenderer.send('popup-close'),
 
   // Platform info

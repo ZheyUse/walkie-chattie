@@ -1,3 +1,5 @@
+import { useSpaceStore } from '../stores/space.store'
+
 export interface NotificationItem {
   id: number
   title: string
@@ -22,6 +24,8 @@ export async function triggerNotification(payload: {
   avatarInitials?: string
 }) {
   const focused = await window.api.isWindowFocused()
+
+  if (useSpaceStore.getState().isMuted()) return // notifications are muted
 
   const item: NotificationItem = {
     id: Date.now(),

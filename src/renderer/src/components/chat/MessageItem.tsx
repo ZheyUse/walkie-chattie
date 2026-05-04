@@ -33,6 +33,52 @@ const EMOJI_PICKER_EMOJIS = [
   '😮','😱','🤯','😈','💀','🙈','💬','👀','⭐','🚀',
 ]
 
+
+function renderContent(text: string) {
+  // Split by both @mentions and URLs
+  const parts: (string | React.ReactNode)[] = []
+  const combinedRegex = /(@\S+|https?:\/\/\S+)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  combinedRegex.lastIndex = 0
+  while ((match = combinedRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index))
+    const token = match[0]
+    if (token.startsWith('@')) {
+      const name = token.slice(1)
+      const isAll = name.toLowerCase() === 'all'
+      parts.push(
+        <span
+          key={match.index}
+          className={isAll ? 'font-bold' : 'font-bold'}
+          style={{ color: isAll ? 'rgba(34,197,94,0.95)' : 'rgba(167,139,250,0.9)' }}
+        >
+          @{name}
+        </span>
+      )
+    } else {
+      // URL
+      parts.push(
+        <a
+          key={match.index}
+          href={token}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:underline transition-colors"
+          style={{ color: 'rgba(167,139,250,0.85)' }}
+          title={token}
+        >
+          {token}
+        </a>
+      )
+    }
+    lastIndex = combinedRegex.lastIndex
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts
+}
+
 function ActionBarTooltip({ label, flipUp = false, children }: { label: string; flipUp?: boolean; children: React.ReactNode }) {
   return (
     <div className='group/s relative'>
@@ -163,7 +209,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
       >
         {msg.gif_url && <img src={msg.gif_url} alt='GIF' className='max-h-48 rounded-lg object-contain mb-1.5' />}
         {msg.image_url && <img src={msg.image_url} alt='Image' className='max-h-64 rounded-lg object-contain mb-1.5 cursor-pointer' style={{ opacity: 0.9 }} />}
-        {msg.content && <p className='text-sm font-body whitespace-pre-wrap break-words leading-relaxed' style={{ color: 'rgba(232,234,237,0.92)' }}>{msg.content}</p>}
+        {msg.content && <p className='text-sm font-body whitespace-pre-wrap break-words leading-relaxed' style={{ color: 'rgba(232,234,237,0.92)' }}>{renderContent(msg.content)}</p>}
       </div>
     )
   }

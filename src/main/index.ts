@@ -278,6 +278,26 @@ app.whenReady().then(() => {
     win.on("closed", () => clearTimeout(timeout))
   })
 
+  // IPC: @all broadcast popup
+  ipcMain.on("show-broadcast", (_, data) => {
+    addDebugLog("info", "main-window", "Opening broadcast popup", data)
+    const win = new BrowserWindow({
+      fullscreen: true,
+      backgroundColor: '#060810',
+      frame: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      webPreferences: {
+        preload: join(__dirname, "../preload/index.js"),
+        contextIsolation: true,
+      },
+    })
+    attachWindowDebugging(win, "broadcast-popup")
+    const timeout = setTimeout(() => { if (!win.isDestroyed()) win.close() }, 12000)
+    win.loadURL(popupUrl({ ...data, popupType: "broadcast" }))
+    win.on("closed", () => clearTimeout(timeout))
+  })
+
   // IPC: window controls
   ipcMain.on("window-minimize", () => {
     addDebugLog("info", "main-window", "Window minimize requested")

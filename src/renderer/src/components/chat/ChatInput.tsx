@@ -100,6 +100,8 @@ export default function ChatInput() {
   const detectCommand = (text: string) => {
     if (text.startsWith("/shout ")) return "shout"
     if (text.startsWith("/tap ")) return "tap"
+    if (text.startsWith("/kick ")) return "kick"
+    if (text.startsWith("/all ")) return "all"
     return "chat"
   }
 
@@ -176,6 +178,29 @@ export default function ChatInput() {
         debugLog({ source: "chat", message: "Tap: no valid @mention found", details: { contentAfterSlice: theContent } })
       }
     }
+    if (cmd === "kick") {
+      theContent = trimmed.slice(6)
+      const mentionMatch = theContent.match(/^@(\S+)/)
+      if (!mentionMatch) { toast('Use /kick @username'); return }
+      const rawNick = mentionMatch[1]
+      const isAdmin = currentSpace?.owner_id === profile?.id
+      if (!isAdmin) { toast('Only admins can kick members'); return }
+      const targetMember = members.find(m => m.nickname.toLowerCase() === rawNick.toLowerCase())
+      if (!targetMember) { toast(`Member "${rawNick}" not found`); return }
+      if (targetMember.user_id === profile?.id) { toast("You can't kick yourself"); return }
+      await supabase.from('space_members').delete().eq('space_id', currentSpace.id).eq('user_id', targetMember.user_id)
+      await supabase.from('messages').insert({
+        space_id: currentSpace.id,
+        sender_id: profile.id,
+        sender_nickname: profile.nickname,
+        type: 'system',
+        content: `${profile.nickname} removed ${targetMember.nickname} from the space`,
+      })
+      toast(`${targetMember.nickname} has been removed`)
+      setValue("")
+      return
+    }
+    if (cmd === "all") theContent = trimmed.slice(5)
 
     const tempId = `temp-${Date.now()}-${Math.random()}`
 
@@ -253,6 +278,21 @@ export default function ChatInput() {
       }
     }
 
+    // Trigger broadcast popup for @all mentions
+    if (insertId && cmd === 'all') {
+      const includeSelf = localStorage.getItem('include_self_shout') === 'true'
+      if (includeSelf) {
+        debugLog({ source: "chat", message: "showBroadcast called", details: { sender: profile.nickname, message: theContent } })
+        window.api.showBroadcast({
+          sender: profile.nickname,
+          message: theContent || '',
+          gifUrl: pendingGifUrl || undefined,
+          spaceName: currentSpace?.name,
+          spaceIcon: currentSpace?.avatar_emoji,
+        })
+      }
+    }
+
     if (insertId) {
       setValue("")
       setPendingImage(null)
@@ -279,6 +319,19 @@ export default function ChatInput() {
         submitEdit()
       } else {
         send()
+      }
+    }
+    // When @mention is active, Tab accepts the correct suggestion
+    if (e.key === "Tab" && mentionActive && !editingMessage) {
+      e.preventDefault()
+      e.stopPropagation()
+      const queryLower = mentionQuery.toLowerCase()
+      const atAllMatch = 'all'.startsWith(queryLower) || queryLower === ''
+      if (atAllMatch) {
+        handleMentionSelect('__bold__@all')
+      } else {
+        const match = members.find(m => m.nickname.toLowerCase().includes(queryLower))
+        if (match) handleMentionSelect(match.nickname)
       }
     }
     if (e.key === "Escape") {
@@ -315,7 +368,9 @@ export default function ChatInput() {
   const handleMentionSelect = (nickname: string) => {
     const cursor = textareaRef.current?.selectionStart || 0
     const lastAt = value.lastIndexOf("@", cursor - 1)
-    if (lastAt >= 0) setValue(value.slice(0, lastAt) + "@" + nickname + " " + value.slice(cursor))
+    // Strip __bold__ prefix that WhisperSuggest prepends to @all
+    const cleanNick = nickname.replace('__bold__', '')
+    if (lastAt >= 0) setValue(value.slice(0, lastAt) + "@" + cleanNick + " " + value.slice(cursor))
     setMentionActive(false)
     setTimeout(() => textareaRef.current?.focus(), 0)
   }
