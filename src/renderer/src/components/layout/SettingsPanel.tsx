@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/auth.store'
@@ -172,9 +173,9 @@ export default function SettingsPanel() {
               style={{ color: 'rgba(139,92,246,0.35)' }}
             >
               {copiedId ? (
-                <svg width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'><path d='M20 6 9 17l-5-5' /></svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>check</span>
               ) : (
-                <svg width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /></svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>content_copy</span>
               )}
             </button>
           </div>
@@ -214,9 +215,7 @@ export default function SettingsPanel() {
           <button onClick={handleToggleIncludeInShout} className="w-full flex items-center justify-between py-1.5 group">
             <div className="flex items-center gap-2.5">
               <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m3 11 18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
-                </svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '11px', color: 'rgba(139,92,246,0.6)' }}>campaign</span>
               </div>
               <div>
                 <p className="text-sm font-body" style={{ color: 'rgba(232,234,237,0.8)' }}>Include in shout</p>
@@ -231,9 +230,7 @@ export default function SettingsPanel() {
         {/* Search */}
         <div className="px-4 py-2" style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
           <div className="relative">
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(90,100,120,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-            </svg>
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2" style={{ fontSize: '12px', color: 'rgba(90,100,120,0.4)' }}>search</span>
             <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search messages..."
               className="input-field text-sm pl-8" style={{ paddingLeft: '2rem' }} />
@@ -293,10 +290,7 @@ export default function SettingsPanel() {
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-all hover:bg-white/[0.04] text-left"
               style={{ color: 'rgba(232,234,237,0.4)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>refresh</span>
               Reset Chat
             </button>
             <button
@@ -304,9 +298,7 @@ export default function SettingsPanel() {
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-all hover:bg-red-500/5 text-left"
               style={{ color: 'rgba(239,68,68,0.45)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-              </svg>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'inherit' }}>delete</span>
               Nuke Space
             </button>
           </div>
@@ -319,9 +311,7 @@ export default function SettingsPanel() {
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-body transition-all hover:bg-red-500/5 text-center"
               style={{ color: 'rgba(239,68,68,0.45)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-              </svg>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'inherit' }}>logout</span>
               Leave Space
             </button>
           </div>

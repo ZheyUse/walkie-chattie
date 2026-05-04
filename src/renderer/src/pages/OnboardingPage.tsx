@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth.store'
@@ -13,9 +14,7 @@ function AvailabilityBadge({ status }: { status: 'idle' | 'checking' | 'availabl
   if (status === 'checking') {
     return (
       <div className="flex items-center gap-1.5">
-        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.5)" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-        </svg>
+        <span className="material-symbols-outlined animate-spin" style={{ fontSize: '12px', color: 'rgba(139,92,246,0.5)' }}>sync</span>
         <span className="text-xs" style={{ color: 'rgba(139,92,246,0.5)' }}>Checking…</span>
       </div>
     )
@@ -28,15 +27,9 @@ function AvailabilityBadge({ status }: { status: 'idle' | 'checking' | 'availabl
   return (
     <div className="flex items-center gap-1.5">
       {taken ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M15 9l-6 6M9 9l6 6"/>
-        </svg>
+        <span className="material-symbols-outlined" style={{ fontSize: '12px', color }}>cancel</span>
       ) : (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M9 12l2 2 4-4"/>
-        </svg>
+        <span className="material-symbols-outlined" style={{ fontSize: '12px', color }}>check_circle</span>
       )}
       <span className="text-xs" style={{ color }}>{label}</span>
     </div>

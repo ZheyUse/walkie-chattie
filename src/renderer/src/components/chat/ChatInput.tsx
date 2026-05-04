@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState, useRef, useCallback, useEffect } from "react"
 import { supabase } from "../../lib/supabase"
 import { useAuthStore } from "../../stores/auth.store"
@@ -355,9 +356,7 @@ export default function ChatInput() {
             className="flex-shrink-0 w-9 h-9 flex items-center justify-center text-text-lo hover:text-text-hi rounded transition-colors"
             title="Attach"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-            </svg>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'inherit' }}>attach_file</span>
           </button>
         </Tooltip>
         <input
@@ -381,10 +380,7 @@ export default function ChatInput() {
               onClick={(e) => { e.stopPropagation(); const next = !showGif; closeAllPopovers(); if (next) setShowGif(true) }}
               className="gif-btn flex-shrink-0 w-9 h-9 flex items-center justify-center text-text-lo hover:text-text-hi rounded transition-colors"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="18" height="18" x="3" y="3" rx="2"/>
-                <path d="M7 8h4m-4 4h6M17 8h.01M17 12h.01M7 16h3"/>
-              </svg>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'inherit' }}>gif_box</span>
             </button>
           </Tooltip>
           {showGif && (
@@ -401,11 +397,7 @@ export default function ChatInput() {
               onClick={(e) => { e.stopPropagation(); const next = !showStickers; closeAllPopovers(); if (next) setShowStickers(true) }}
               className="sticker-btn flex-shrink-0 w-9 h-9 flex items-center justify-center text-text-lo hover:text-text-hi rounded transition-colors"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/>
-                <path d="M15 3v6h6"/>
-                <path d="M10 11.5a1.5 1.5 0 1 1 3 0c0 .8-.5 1.5-1 2s-.5 1-1 1.5"/>
-              </svg>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'inherit' }}>sticker_add</span>
             </button>
           </Tooltip>
           {showStickers && (
@@ -422,12 +414,7 @@ export default function ChatInput() {
               onClick={(e) => { e.stopPropagation(); const next = !showEmoji; closeAllPopovers(); if (next) setShowEmoji(true) }}
               className="emoji-btn flex-shrink-0 w-9 h-9 flex items-center justify-center text-text-lo hover:text-text-hi rounded transition-colors"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M8 13s1.5 2 4 2 4-2 4-2"/>
-                <line x1="9" x2="9.01" y1="9" y2="9"/>
-                <line x1="15" x2="15.01" y1="9" y2="9"/>
-              </svg>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'inherit' }}>sentiment_satisfied</span>
             </button>
           </Tooltip>
           {showEmoji && (

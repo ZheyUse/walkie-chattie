@@ -32,6 +32,15 @@ export default function ShoutPopup() {
   const spaceIcon = data.spaceIcon || '📢'
   const [countdown, setCountdown] = useState(5)
 
+  // Close on click anywhere in the popup
+  useEffect(() => {
+    function handleClick() {
+      window.api.closePopup()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
   useEffect(() => {
     const tick = setInterval(() => setCountdown(c => c - 1), 1000)
     const close = setTimeout(() => window.api.closePopup(), 5000)
@@ -40,9 +49,9 @@ export default function ShoutPopup() {
 
   return (
     <div
+      id="shout-popup"
       className="h-screen w-screen"
       style={{ background: '#0a0c14' }}
-      onClick={() => window.api.closePopup()}
     >
       <div
         className="flex flex-col overflow-hidden"

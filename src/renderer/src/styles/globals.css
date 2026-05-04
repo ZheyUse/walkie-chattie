@@ -94,10 +94,28 @@
   0%, 100% { opacity: 0.6; }
   50%       { opacity: 1; }
 }
+@keyframes spin-icon {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
 
 .animate-fade-in {
   animation: fade-in 0.2s ease-out both;
 }
 .animate-fade-in-scale {
   animation: fade-in-scale 0.2s ease-out both;
+}
+.animate-spin {
+  animation: spin-icon 1s linear infinite;
+}
+/* Material Symbols base styles */
+.material-symbols-outlined {
+  font-size: 20px !important;
+  vertical-align: middle !important;
+  line-height: 1 !important;
+}
+
+.spin-icon {
+  animation: spin-icon 1s linear infinite;
+  display: inline-block;
 }

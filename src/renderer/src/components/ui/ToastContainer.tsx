@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useToastStore } from '../../lib/toast'
 
 export default function ToastContainer() {
@@ -23,9 +24,7 @@ export default function ToastContainer() {
             className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(139,92,246,0.15)' }}
           >
-            <svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='rgba(139,92,246,0.8)' strokeWidth='3' strokeLinecap='round' strokeLinejoin='round'>
-              <path d='M20 6 9 17l-5-5' />
-            </svg>
+            <span className="material-symbols-outlined" style={{ fontSize: '11px', color: 'rgba(139,92,246,0.8)' }}>check</span>
           </div>
           <span>{t.msg}</span>
           <button
@@ -33,9 +32,7 @@ export default function ToastContainer() {
             className='ml-1 p-0.5 rounded-lg transition-colors'
             style={{ color: 'rgba(90,100,120,0.5)' }}
           >
-            <svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round'>
-              <path d='M18 6 6 18M6 6l12 12' />
-            </svg>
+            <span className="material-symbols-outlined" style={{ fontSize: '11px' }}>close</span>
           </button>
         </div>
       ))}

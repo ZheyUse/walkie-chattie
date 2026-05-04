@@ -16,6 +16,7 @@
     "@giphy/js-fetch-api": "^5.8.0",
     "@giphy/react-components": "^10.1.2",
     "@supabase/supabase-js": "^2.45.4",
+    "material-symbols": "^0.44.4",
     "zustand": "^5.0.1"
   },
   "devDependencies": {

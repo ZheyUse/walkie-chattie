@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useEffect, useMemo, useState } from "react"
 import type { DebugLogEntry } from "../lib/debug"
 
@@ -140,17 +141,12 @@ export default function DebugPage() {
           >
             {copiedAll ? (
               <>
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
                 {copiedText}
               </>
             ) : (
               <>
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
-                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                </svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>content_copy</span>
                 Copy All
               </>
             )}
@@ -162,16 +158,12 @@ export default function DebugPage() {
           >
             {cleared ? (
               <>
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
                 Cleared
               </>
             ) : (
               <>
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                </svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>delete</span>
                 Clear
               </>
             )}
@@ -253,14 +245,9 @@ export default function DebugPage() {
                     className="w-7 h-7 rounded flex items-center justify-center text-text-lo hover:text-accent hover:bg-bg-hover transition-colors"
                   >
                     {copiedId === selected.id ? (
-                      <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check</span>
                     ) : (
-                      <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
-                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                      </svg>
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>content_copy</span>
                     )}
                   </button>
                 </div>
@@ -287,9 +274,7 @@ export default function DebugPage() {
               onClick={() => setShowIconPreview(false)}
               className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-text-lo hover:text-text-hi hover:bg-white/5 transition-colors z-10"
             >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18M6 6l12 12"/>
-              </svg>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
             </button>
             <div className="p-8 flex flex-col items-center gap-4">
               <p className="font-display text-sm text-text-md">App Icon — 1080×1080px</p>

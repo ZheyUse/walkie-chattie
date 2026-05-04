@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useSpaceStore } from '../../stores/space.store'
@@ -295,9 +296,7 @@ export default function MessageList() {
                 className='w-12 h-12 rounded-2xl flex items-center justify-center'
                 style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139,92,246,0.15)' }}
               >
-                <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='rgba(139, 92, 246, 0.4)' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'>
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'rgba(139, 92, 246, 0.4)' }}>chat</span>
               </div>
               <p className='text-text-lo text-sm'>No messages yet. Start the conversation.</p>
             </div>
@@ -324,9 +323,7 @@ export default function MessageList() {
             boxShadow: '0 4px 16px rgba(139, 92, 246, 0.4)',
           }}
         >
-          <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
-            <path d='M12 5v14M5 12l7 7 7-7' />
-          </svg>
+          <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>expand_less</span>
           New messages
         </button>
       )}

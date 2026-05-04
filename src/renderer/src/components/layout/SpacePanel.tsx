@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState, useRef } from "react"
 import { useSpaceStore } from "../../stores/space.store"
 import { useAuthStore } from "../../stores/auth.store"
@@ -84,9 +85,7 @@ export default function SpacePanel() {
           ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.7)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12h14M12 5v14" />
-        </svg>
+        <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'rgba(139,92,246,0.7)' }}>add</span>
       </button>
 
       <div className="mt-auto" />

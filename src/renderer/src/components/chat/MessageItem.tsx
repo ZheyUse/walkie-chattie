@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSpaceStore } from '../../stores/space.store'
@@ -25,10 +26,7 @@ function formatTime(iso: string) {
 function SendingSpinner() {
   return (
     <div className="flex items-center gap-1">
-      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-        className="animate-spin" style={{ color: 'rgba(139,92,246,0.5)' }}>
-        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-      </svg>
+      <span className="material-symbols-outlined animate-spin" style={{ fontSize: '11px', color: 'rgba(139,92,246,0.5)' }}>progress_activity</span>
       <span className="text-[10px] font-body" style={{ color: 'rgba(139,92,246,0.5)' }}>sending</span>
     </div>
   )
@@ -37,9 +35,7 @@ function SendingSpinner() {
 function SentIcon() {
   return (
     <div className="flex items-center gap-0.5">
-      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(139,92,246,0.4)' }}>
-        <path d="M20 6 9 17l-5-5" />
-      </svg>
+      <span className="material-symbols-outlined" style={{ fontSize: '11px', color: 'rgba(139,92,246,0.4)' }}>check</span>
     </div>
   )
 }
@@ -47,10 +43,7 @@ function SentIcon() {
 function ReceivedIcon() {
   return (
     <div className="flex items-center gap-0.5">
-      <svg viewBox="0 0 30 14" width="18" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-blue">
-        <path d="M20 6 9 17l-5-5" />
-        <path d="M28 6 17 17" />
-      </svg>
+      <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'rgba(139,92,246,0.4)' }}>check</span>
     </div>
   )
 }
@@ -63,12 +56,7 @@ function RetryButton({ onRetry }: { onRetry: () => void }) {
       className="flex items-center justify-center w-5 h-5 rounded-full transition-all hover:bg-red-500/20"
       style={{ background: 'rgba(239, 68, 68, 0.15)', color: 'rgba(239, 68, 68, 0.7)' }}
     >
-      <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-        <path d="M21 3v5h-5" />
-        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-        <path d="M8 16H3v5" />
-      </svg>
+      <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>refresh</span>
     </button>
   )
 }

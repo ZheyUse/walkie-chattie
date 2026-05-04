@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState, useEffect } from "react"
 
 interface PopupData { sender: string; message: string; gifUrl?: string }
@@ -22,6 +23,15 @@ export default function TapPopup() {
   const [data] = useState(getPopupData)
   const [countdown, setCountdown] = useState(5)
 
+  // Close on click anywhere in the popup
+  useEffect(() => {
+    function handleClick() {
+      window.api.closePopup()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
   useEffect(() => {
     const tick = setInterval(() => setCountdown(c => c - 1), 1000)
     const close = setTimeout(() => window.api.closePopup(), 5000)
@@ -30,9 +40,9 @@ export default function TapPopup() {
 
   return (
     <div
+      id="tap-popup"
       className="h-screen w-screen"
       style={{ background: '#0a0c14' }}
-      onClick={() => window.api.closePopup()}
     >
       <div
         className="flex flex-col overflow-hidden"
@@ -52,12 +62,7 @@ export default function TapPopup() {
             className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v0"/>
-              <path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/>
-              <path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/>
-              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
-            </svg>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'rgba(167,139,250,0.85)' }}>lock</span>
           </div>
           <span className="font-display font-bold text-base uppercase tracking-widest" style={{ color: 'rgba(167,139,250,0.8)' }}>
             Tap

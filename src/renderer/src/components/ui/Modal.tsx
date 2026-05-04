@@ -1,3 +1,4 @@
+import 'material-symbols'
 interface Props {
   open: boolean
   title?: string
@@ -52,9 +53,7 @@ export default function Modal({ open, title, closable, onClose, size = 'md', chi
                 style={{ color: 'rgba(90,100,120,0.6)' }}
                 title="Close"
               >
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
+                <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>close</span>
               </button>
             )}
           </div>

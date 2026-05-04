@@ -1,3 +1,4 @@
+import 'material-symbols'
 import { useState } from "react"
 import MessageList from "../chat/MessageList"
 import ChatInput from "../chat/ChatInput"
@@ -78,10 +79,7 @@ export default function ChatArea() {
         >
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-              <path d="M12 12v9M9 18l3-3 3 3"/>
-            </svg>
+            <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'rgba(139,92,246,0.8)' }}>attach_file</span>
           </div>
           <p className="font-display text-sm" style={{ color: 'rgba(139, 92, 246, 0.9)' }}>Drop image to upload</p>
         </div>
