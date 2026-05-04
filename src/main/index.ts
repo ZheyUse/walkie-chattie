@@ -122,6 +122,9 @@ function openDebugWindow() {
 }
 
 function createWindow() {
+  let iconPath = isDev
+    ? join(__dirname, '../../resources/icons/icon-16.png')
+    : join(process.resourcesPath, 'resources/icons/icon-16.png')
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -130,6 +133,7 @@ function createWindow() {
     show: false,
     backgroundColor: "#0e1117",
     autoHideMenuBar: true,
+    icon: iconPath,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -165,16 +169,11 @@ function createWindow() {
 }
 
 function createTray() {
-  // 16x16 blue square nativeImage
-  const size = 16
-  const buf = Buffer.alloc(size * size * 4)
-  for (let i = 0; i < size * size; i++) {
-    buf[i * 4 + 0] = 26;   // R
-    buf[i * 4 + 1] = 159; // G
-    buf[i * 4 + 2] = 255; // B
-    buf[i * 4 + 3] = 255; // A
-  }
-  const icon = nativeImage.createFromBuffer(buf, { width: size, height: size })
+  // In dev the path is relative to project root; in prod it's inside asar
+  let iconPath = isDev
+    ? join(__dirname, '../../resources/icons/icon-16.png')
+    : join(process.resourcesPath, 'resources/icons/icon-16.png')
+  const icon = nativeImage.createFromPath(iconPath)
   tray = new Tray(icon)
   tray.setToolTip("Walkie-Chattie")
   tray.setContextMenu(Menu.buildFromTemplate([

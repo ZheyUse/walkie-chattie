@@ -48,6 +48,7 @@ export default function DebugPage() {
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [copiedAll, setCopiedAll] = useState(false)
   const [cleared, setCleared] = useState(false)
+  const [showIconPreview, setShowIconPreview] = useState(false)
 
   useEffect(() => {
     window.api.getDebugLogs().then((entries) => setLogs(dedupeLogs(entries)))
@@ -119,6 +120,15 @@ export default function DebugPage() {
           <p className="text-xs text-text-lo">F1 opens this window. Events, crashes, network failures, and app actions appear here.</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-text-lo">
+          <span>App icon:</span>
+          <img
+            src="/resources/icons/icon-64.png"
+            alt="app icon"
+            title="Click to preview full size"
+            className="rounded cursor-pointer hover:ring-2 hover:ring-accent transition-all"
+            style={{ width: 32, height: 32 }}
+            onClick={() => setShowIconPreview(true)}
+          />
           {showFilteredCount && <span>{filtered.length} shown</span>}
           <span className={showFilteredCount ? "text-text-lo" : ""}>{logs.length} logs</span>
           <span className="text-green-400">{logs.filter((entry) => entry.level === "success").length} success</span>
@@ -264,6 +274,36 @@ export default function DebugPage() {
           )}
         </aside>
       </main>
+
+      {/* App icon preview overlay */}
+      {showIconPreview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowIconPreview(false)}
+        >
+          <div className="relative rounded-2xl overflow-hidden" style={{ background: 'rgba(15,18,28,0.98)', border: '1px solid rgba(139,92,246,0.25)', boxShadow: '0 16px 64px rgba(0,0,0,0.8)' }}>
+            <button
+              onClick={() => setShowIconPreview(false)}
+              className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-text-lo hover:text-text-hi hover:bg-white/5 transition-colors z-10"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18M6 6l12 12"/>
+              </svg>
+            </button>
+            <div className="p-8 flex flex-col items-center gap-4">
+              <p className="font-display text-sm text-text-md">App Icon — 1080×1080px</p>
+              <img
+                src="/resources/icons/icon-512.png"
+                alt="App icon full preview"
+                className="rounded-xl"
+                style={{ width: 480, height: 480 }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

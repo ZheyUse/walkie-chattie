@@ -25,13 +25,17 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.20",
+    "canvas": "^3.2.3",
+    "convert-svg-to-png": "^0.7.1",
     "electron": "^41.5.0",
     "electron-builder": "^26.8.1",
     "electron-store": "^8.2.0",
     "electron-vite": "^6.0.0-beta.1",
+    "pngjs": "^3.4.0",
     "postcss": "^8.4.47",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
     "vite": "^7.3.2"
@@ -45,11 +49,20 @@
     "files": [
       "out/**/*"
     ],
+    "asarUnpack": [
+      "resources/icons/*.png"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/icons",
+        "to": "resources/icons"
+      }
+    ],
     "win": {
       "target": [
         "nsis"
       ],
-      "icon": "resources/icon.ico"
+      "icon": "resources/icons/icon-256.png"
     },
     "nsis": {
       "oneClick": false,

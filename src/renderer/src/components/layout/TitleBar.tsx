@@ -19,16 +19,14 @@ export default function TitleBar() {
     >
       {/* Drag region */}
       <div className="flex items-center gap-3 flex-1" style={{ WebkitAppRegion: "drag" }}>
-        {/* Logo: radio wave mark */}
-        <div className="flex items-center justify-center w-7 h-7 rounded-lg"
+        {/* App logo mark */}
+        <div className="flex items-center justify-center w-7 h-7 rounded-lg overflow-hidden p-0"
           style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #1a9fff 100%)', WebkitAppRegion: 'no-drag' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
-            <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
-            <circle cx="12" cy="12" r="2" />
-            <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
-            <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
-          </svg>
+          <img
+            src="/resources/icons/icon-32.png"
+            alt="Walkie-Chattie"
+            className="w-full h-full object-contain"
+          />
         </div>
 
         {/* Brand name with gradient */}
