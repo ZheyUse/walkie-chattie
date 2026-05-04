@@ -5,7 +5,9 @@ export type PopupData = {
   message: string
   gifUrl?: string
   color?: string
-  type: 'shout' | 'whisper'
+  spaceName?: string
+  spaceIcon?: string
+  type: 'shout' | 'whisper' | 'tap'
 }
 
 export type DebugLogEntry = {
@@ -26,7 +28,7 @@ const api = {
   // Popup controls
   showShout: (data: Omit<PopupData, 'type'>) =>
     ipcRenderer.send('show-shout', data),
-  showWhisper: (data: Omit<PopupData, 'type'>) =>
+  showTap: (data: Omit<PopupData, 'type'>) =>
     ipcRenderer.send('show-whisper', data),
   closePopup: () => ipcRenderer.send('popup-close'),
 

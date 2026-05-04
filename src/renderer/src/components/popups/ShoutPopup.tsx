@@ -1,6 +1,12 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
-interface PopupData { sender: string; message: string; gifUrl?: string }
+interface PopupData {
+  sender: string
+  message: string
+  gifUrl?: string
+  spaceName?: string
+  spaceIcon?: string
+}
 
 function getPopupData(): PopupData {
   try {
@@ -10,77 +16,84 @@ function getPopupData(): PopupData {
   return { sender: "?", message: "" }
 }
 
-function getScale(len: number) {
-  if (len < 20) return 36
-  if (len < 50) return 28
-  if (len < 100) return 22
-  return 18
-}
-
 export default function ShoutPopup() {
   const [data] = useState(getPopupData)
-  const fontSize = getScale(data.message?.length || 0)
+  const spaceName = data.spaceName || 'Space'
+  const spaceIcon = data.spaceIcon || '📢'
 
   return (
-    <div className="h-screen bg-bg-deep flex flex-col overflow-hidden" style={{ background: 'radial-gradient(ellipse at 80% 0%, rgba(232,101,42,0.08) 0%, transparent 60%), radial-gradient(ellipse at 20% 100%, rgba(139,92,246,0.05) 0%, transparent 60%), #0a0e1a' }}>
+    <div
+      className="h-screen w-screen flex flex-col overflow-hidden relative"
+      style={{ background: 'rgba(10,13,24,0.97)' }}
+      onClick={() => window.api.closePopup()}
+    >
       {/* Header */}
       <div
-        className="px-6 py-4 flex items-center justify-between"
-        style={{
-          borderBottom: '1px solid rgba(232,101,42,0.2)',
-          background: 'rgba(232,101,42,0.08)',
-          backdropFilter: 'blur(12px)',
-        }}
+        className="flex-shrink-0 flex items-center gap-3 px-6 py-4"
+        style={{ borderBottom: '1px solid rgba(232,101,42,0.15)' }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3">
-          {/* Megaphone icon */}
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(232,101,42,0.15)', boxShadow: '0 0 12px rgba(232,101,42,0.2)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(232,101,42,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m3 11 18-5v12L3 13v-2z"/>
-              <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
-            </svg>
-          </div>
-          <span className="font-display font-bold text-2xl uppercase tracking-widest" style={{
-            background: 'linear-gradient(90deg, #f97316 0%, #e8652a 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>SHOUT</span>
-          <span className="font-display text-sm" style={{ color: 'rgba(232,101,42,0.5)' }}>from {data.sender}</span>
-        </div>
-        <button
-          onClick={() => window.api.closePopup()}
-          className="text-sm rounded-lg px-3 py-1.5 transition-all duration-150"
-          style={{ color: 'rgba(232,101,42,0.5)', background: 'rgba(232,101,42,0.08)', border: '1px solid rgba(232,101,42,0.15)' }}
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs leading-none border flex-shrink-0"
+          style={{
+            borderColor: 'rgba(232,101,42,0.3)',
+            background: 'rgba(232,101,42,0.1)',
+            color: 'rgba(232,101,42,0.8)',
+          }}
         >
-          × Dismiss
-        </button>
+          {spaceIcon}
+        </div>
+        <span
+          className="font-display font-bold text-sm tracking-wide"
+          style={{ color: 'rgba(232,234,237,0.6)' }}
+        >
+          {spaceName}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: 'rgba(232,101,42,0.5)', boxShadow: '0 0 6px rgba(232,101,42,0.5)' }}
+          />
+          <span className="font-display text-xs uppercase tracking-widest" style={{ color: 'rgba(232,101,42,0.8)' }}>
+            Shout
+          </span>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 gap-6">
-        <div className="relative max-w-2xl text-center">
-          {/* Glow backdrop */}
-          <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: 'rgba(232,101,42,0.06)', filter: 'blur(32px)', transform: 'scale(1.2)' }} />
-          <p
-            className="relative font-display font-bold leading-tight"
-            style={{
-              fontSize: fontSize + 'px',
-              background: 'linear-gradient(135deg, #f97316 0%, #e8652a 50%, #dc2626 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: 'none',
-              filter: 'drop-shadow(0 0 16px rgba(232,101,42,0.5))',
-            }}
-          >
-            {data.message}
-          </p>
-        </div>
+      {/* Main content */}
+      <div
+        className="flex-1 flex flex-col items-center justify-center px-8 pointer-events-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p
+          className="font-display font-bold text-center leading-tight"
+          style={{
+            fontSize: 'clamp(24px, 5vw, 56px)',
+            color: 'rgba(232,234,237,0.95)',
+            maxWidth: '800px',
+          }}
+        >
+          {data.message}
+        </p>
+
         {data.gifUrl && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(232,101,42,0.2)', boxShadow: '0 0 24px rgba(232,101,42,0.15)' }}>
-            <img src={data.gifUrl} alt="GIF" className="max-h-40 object-contain" />
+          <div className="mt-8 rounded-xl overflow-hidden pointer-events-auto" style={{ border: '1px solid rgba(232,101,42,0.2)' }}>
+            <img src={data.gifUrl} alt="GIF" className="max-h-48 object-contain" />
           </div>
         )}
+      </div>
+
+      {/* Footer */}
+      <div
+        className="flex-shrink-0 flex flex-col items-center gap-1 px-6 pb-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="font-body text-sm" style={{ color: 'rgba(232,101,42,0.5)' }}>
+          — {data.sender}
+        </span>
+        <span className="font-body text-xs" style={{ color: 'rgba(232,101,42,0.3)' }}>
+          Press anywhere to close
+        </span>
       </div>
     </div>
   )

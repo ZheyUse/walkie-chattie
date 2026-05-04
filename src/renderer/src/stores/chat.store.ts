@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugLog } from '../lib/debug'
 import type { Space } from './space.store'
 
-export type MessageType = 'chat' | 'shout' | 'whisper' | 'system'
+export type MessageType = 'chat' | 'shout' | 'whisper' | 'tap' | 'system'
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error'
 
 export interface Message {

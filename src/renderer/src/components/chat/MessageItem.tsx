@@ -166,7 +166,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
                   {msg.content}
                 </div>
               </div>
-            ) : msg.type === 'whisper' ? (
+            ) : (msg.type === 'whisper' || msg.type === 'tap') ? (
               <div
                 className="px-3.5 py-2 rounded-xl rounded-tl-none"
                 style={{

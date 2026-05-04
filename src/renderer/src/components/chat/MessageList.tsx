@@ -85,18 +85,26 @@ export default function MessageList() {
         filter: 'space_id=eq.' + currentSpace.id
       }, async function(payload) {
         var msg = payload.new as Message
+        debugLog({ source: 'chat-realtime', message: 'INSERT event received', details: { msgId: msg.id, type: msg.type, sender: msg.sender_nickname } })
 
         if (msg.type === 'shout') {
           const includeSelf = localStorage.getItem('include_self_shout') === 'true'
-          const isOwnForShout = msg.sender_id === profile?.id
+          const isOwnForShout = msg.sender_id === profileIdRef.current
+          debugLog({ source: 'chat-realtime', message: 'Shout check', details: { includeSelf, isOwnForShout } })
           if (includeSelf || !isOwnForShout) {
-            window.api.showShout({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined })
+            window.api.showShout({
+              sender: msg.sender_nickname,
+              message: msg.content || '',
+              gifUrl: msg.gif_url || undefined,
+              spaceName: currentSpace?.name,
+              spaceIcon: currentSpace?.avatar_emoji,
+            })
           }
         }
-        if (msg.type === 'whisper' && !msg.target_user_id) {
+        if ((msg.type === 'whisper' || msg.type === 'tap') && !msg.target_user_id) {
           var session = (await supabase.auth.getSession()).data.session
           if (msg.sender_id === session?.user?.id || msg.target_user_id === session?.user?.id) {
-            window.api.showWhisper({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined })
+            window.api.showTap({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined })
           }
         }
 

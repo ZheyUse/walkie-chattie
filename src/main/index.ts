@@ -237,14 +237,14 @@ app.whenReady().then(() => {
     }
   })
 
-  // IPC: shout popup
+  // IPC: shout popup — full-screen dramatic overlay
   ipcMain.on("show-shout", (_, data) => {
     addDebugLog("info", "main-window", "Opening shout popup", data)
     const win = new BrowserWindow({
-      width: 500, height: 260,
+      width: 900, height: 600,
       alwaysOnTop: true, frame: false,
       skipTaskbar: true, resizable: false,
-      backgroundColor: "#1e2530",
+      backgroundColor: "#0a0e1a",
       webPreferences: {
         preload: join(__dirname, "../preload/index.js"),
         contextIsolation: true,
@@ -252,14 +252,14 @@ app.whenReady().then(() => {
     })
     attachWindowDebugging(win, "shout-popup")
     win.center()
-    const timeout = setTimeout(() => { if (!win.isDestroyed()) win.close() }, 8000)
+    const timeout = setTimeout(() => { if (!win.isDestroyed()) win.close() }, 12000)
     win.loadURL(popupUrl({ ...data, popupType: "shout" }))
     win.on("closed", () => clearTimeout(timeout))
   })
 
-  // IPC: whisper popup
+  // IPC: whisper/tap popup
   ipcMain.on("show-whisper", (_, data) => {
-    addDebugLog("info", "main-window", "Opening whisper popup", data)
+    addDebugLog("info", "main-window", "Opening tap popup", data)
     const win = new BrowserWindow({
       width: 420, height: 230,
       alwaysOnTop: true, frame: false,
@@ -270,10 +270,10 @@ app.whenReady().then(() => {
         contextIsolation: true,
       },
     })
-    attachWindowDebugging(win, "whisper-popup")
+    attachWindowDebugging(win, "tap-popup")
     win.center()
     const timeout = setTimeout(() => { if (!win.isDestroyed()) win.close() }, 8000)
-    win.loadURL(popupUrl({ ...data, popupType: "whisper" }))
+    win.loadURL(popupUrl({ ...data, popupType: "tap" }))
     win.on("closed", () => clearTimeout(timeout))
   })
 

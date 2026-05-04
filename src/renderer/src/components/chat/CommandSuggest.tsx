@@ -1,30 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Member } from '../../stores/space.store'
+
+interface Command {
+  id: string
+  label: string
+  description: string
+}
+
+const COMMANDS: Command[] = [
+  { id: 'shout', label: '/shout', description: 'Broadcast to the entire space' },
+  { id: 'tap', label: '/tap', description: 'Tap a user to send a private shout' },
+]
 
 interface Props {
   query: string
-  members: Member[]
-  onSelect: (nickname: string) => void
+  onSelect: (command: string) => void
   onClose: () => void
 }
 
-export default function WhisperSuggest({ query, members, onSelect, onClose }: Props) {
+export default function CommandSuggest({ query, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const filtered = members.filter(function(m) {
-    return m.nickname.toLowerCase().includes(query.toLowerCase())
-  })
+  const filtered = COMMANDS.filter((c) =>
+    c.id.toLowerCase().includes(query.toLowerCase())
+  )
 
   useEffect(() => { setSelectedIndex(0) }, [query])
 
-  useEffect(function() {
-    var h = function(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
     document.addEventListener('mousedown', h)
-    return function() { document.removeEventListener('mousedown', h) }
+    return function () { document.removeEventListener('mousedown', h) }
   }, [onClose])
 
-  useEffect(function() {
-    function k(e: KeyboardEvent) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return }
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -37,17 +48,18 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault()
         e.stopPropagation()
-        if (filtered[selectedIndex]) onSelect(filtered[selectedIndex].nickname)
+        if (filtered[selectedIndex]) onSelect(filtered[selectedIndex].label)
       }
     }
     document.addEventListener('keydown', k)
-    return function() { document.removeEventListener('keydown', k) }
+    return function () { document.removeEventListener('keydown', k) }
   }, [filtered, selectedIndex, onSelect, onClose])
 
   if (filtered.length === 0) return null
 
   return (
-    <div ref={ref}
+    <div
+      ref={ref}
       style={{
         position: 'absolute',
         bottom: '100%',
@@ -63,33 +75,32 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
         boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         backdropFilter: 'blur(16px)',
         overflow: 'hidden',
-      }}>
-      {filtered.map(function(m, i) {
+      }}
+    >
+      {filtered.map(function (cmd, i) {
         return (
           <button
-            key={m.user_id}
-            onMouseDown={function(e) { e.preventDefault(); onSelect(m.nickname) }}
+            key={cmd.id}
+            onMouseDown={function (e) { e.preventDefault(); onSelect(cmd.label) }}
             onMouseEnter={() => setSelectedIndex(i)}
-            className="w-full px-3 py-2 flex items-center gap-2 transition-colors text-left"
+            className="w-full px-3 py-2 flex flex-col gap-0.5 transition-colors text-left"
             style={{
               borderTop: i > 0 ? '1px solid rgba(139,92,246,0.06)' : 'none',
               background: i === selectedIndex ? 'rgba(139,92,246,0.18)' : 'transparent',
             }}
           >
-            <div className="w-6 h-6 rounded-full text-xs font-display font-bold text-bg-deep flex items-center justify-center flex-shrink-0"
-                style={{ background: m.avatar_color }}>
-              {(m.nickname[0] || '?').toUpperCase()}</div>
             <span
-              className="text-sm font-body flex-1 truncate"
+              className="text-sm font-body"
               style={{ color: i === selectedIndex ? 'rgba(232,234,237,1)' : 'rgba(232,234,237,0.8)' }}
             >
-              {m.nickname}
+              {cmd.label}
             </span>
-            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{
-              background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
-              boxShadow: '0 0 4px rgba(139,92,246,0.5)',
-              opacity: i === selectedIndex ? 1 : 0.5,
-            }} />
+            <span
+              className="text-xs font-body"
+              style={{ color: i === selectedIndex ? 'rgba(196,181,253,0.9)' : 'rgba(139,92,246,0.6)' }}
+            >
+              {cmd.description}
+            </span>
           </button>
         )
       })}

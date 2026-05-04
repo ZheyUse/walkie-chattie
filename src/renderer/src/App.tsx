@@ -9,7 +9,7 @@ import DebugPage from "./pages/DebugPage"
 import RoomModal from "./components/modals/RoomModal"
 import ToastContainer from "./components/ui/ToastContainer"
 import ShoutPopup from "./components/popups/ShoutPopup"
-import WhisperPopup from "./components/popups/WhisperPopup"
+import TapPopup from "./components/popups/TapPopup"
 import { debugLog } from "./lib/debug"
 import { initTypingChannel, teardownTypingChannel } from "./lib/typing-channel"
 
@@ -159,7 +159,7 @@ async function loadExistingSpace(
   await loadSpaceMembers(space.id, setMembers)
 }
 
-function getPopupType(): "shout" | "whisper" | null {
+function getPopupType(): "shout" | "tap" | null {
   try {
     const hash = window.location.hash
     const parts = hash.split("/")
@@ -507,7 +507,7 @@ export default function App() {
 
   if (isDebugRoute) return <DebugPage />
   if (popupType === "shout") return <ShoutPopup />
-  if (popupType === "whisper") return <WhisperPopup />
+  if (popupType === "tap") return <TapPopup />
 
   if (isLoadingScreen) {
     return <div className="h-screen bg-bg-deep flex items-center justify-center">

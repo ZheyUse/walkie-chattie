@@ -7,35 +7,66 @@ const AVATAR_COLORS = [
   '#e91e8c', '#00bcd4', '#ff5722', '#8bc34a'
 ]
 
+function AvailabilityBadge({ status }: { status: 'idle' | 'checking' | 'available' | 'taken' }) {
+  if (status === 'idle') return null
+
+  if (status === 'checking') {
+    return (
+      <div className="flex items-center gap-1.5">
+        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.5)" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        <span className="text-xs" style={{ color: 'rgba(139,92,246,0.5)' }}>Checking…</span>
+      </div>
+    )
+  }
+
+  const taken = status === 'taken'
+  const color = taken ? 'rgba(239,68,68,0.75)' : 'rgba(74,197,94,0.8)'
+  const label = taken ? 'Nickname taken' : 'Nickname available'
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {taken ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M15 9l-6 6M9 9l6 6"/>
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      )}
+      <span className="text-xs" style={{ color }}>{label}</span>
+    </div>
+  )
+}
+
 export default function OnboardingPage() {
   const { user, setProfile } = useAuthStore()
   const [nickname, setNickname] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [checking, setChecking] = useState(false)
+  const [availStatus, setAvailStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [saving, setSaving] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
-  const checkAvailability = async (name: string) => {
-    if (!name.trim() || name.length < 2) return
-    setChecking(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('nickname', name.trim())
-      .maybeSingle()
-    setChecking(false)
-    return data === null
-  }
-
   const handleChange = async (val: string) => {
+    setError(null)
+    setAvailStatus('idle')
     const sanitized = val.replace(/[^a-zA-Z0-9._]/g, '').slice(0, 20)
     setNickname(sanitized)
-    setError(null)
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (sanitized.length < 2) return
     debounceRef.current = setTimeout(async () => {
-      if (sanitized.length < 2) return
-      const available = await checkAvailability(sanitized)
-      if (available === false) setError('That nickname is already taken.')
+      setAvailStatus('checking')
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('nickname', sanitized.trim())
+        .maybeSingle()
+      setAvailStatus(data === null ? 'available' : 'taken')
+      if (data !== null) setError('That nickname is already taken.')
     }, 400)
   }
 
@@ -62,7 +93,7 @@ export default function OnboardingPage() {
     setSaving(false)
   }
 
-  const isValid = nickname.trim().length >= 2
+  const isValid = nickname.trim().length >= 2 && availStatus !== 'taken'
 
   return (
     <div className="h-screen bg-bg-deep flex items-center justify-center relative overflow-hidden">
@@ -88,9 +119,15 @@ export default function OnboardingPage() {
             autoFocus
             className="input-field"
           />
+          {/* Character count */}
           <p className="text-text-lo text-xs px-1">{nickname.length}/20 chars</p>
+
+          {/* Availability badge — shown when user has typed enough */}
+          {nickname.length >= 2 && (
+            <AvailabilityBadge status={availStatus} />
+          )}
         </div>
-        {error && (
+        {error && availStatus === 'taken' && !saving && (
           <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-input px-3 py-2">{error}</p>
         )}
         <button type="submit" disabled={!isValid || saving} className="btn-primary py-3 text-base disabled:opacity-40">

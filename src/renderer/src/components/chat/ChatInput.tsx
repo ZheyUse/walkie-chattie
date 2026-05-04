@@ -8,6 +8,7 @@ import GifPicker from "./GifPicker"
 import EmojiPicker, { insertEmoji } from "./EmojiPicker"
 import StickerPicker, { insertSticker } from "./StickerPicker"
 import WhisperSuggest from "./WhisperSuggest"
+import CommandSuggest from "./CommandSuggest"
 import { debugLog } from "../../lib/debug"
 import { sendTyping, sendStopTyping } from "../../lib/typing-channel"
 import type { Message } from "../../stores/chat.store"
@@ -33,7 +34,8 @@ export default function ChatInput() {
   const [dragging, setDragging] = useState(false)
   const [mentionActive, setMentionActive] = useState(false)
   const [mentionQuery, setMentionQuery] = useState("")
-  const [mentionPos, setMentionPos] = useState({ top: 0, left: 0 })
+  const [cmdActive, setCmdActive] = useState(false)
+  const [cmdQuery, setCmdQuery] = useState("")
 
   const pendingImage = useChatStore(s => s.pendingImage)
   const setPendingImage = useChatStore(s => s.setPendingImage)
@@ -76,7 +78,7 @@ export default function ChatInput() {
 
   const detectCommand = (text: string) => {
     if (text.startsWith("/shout ")) return "shout"
-    if (text.startsWith("/whisper ")) return "whisper"
+    if (text.startsWith("/tap ")) return "tap"
     return "chat"
   }
 
@@ -109,7 +111,7 @@ export default function ChatInput() {
     const cmd = detectCommand(trimmed)
     let theContent = trimmed
     if (cmd === "shout") theContent = trimmed.slice(7)
-    if (cmd === "whisper") theContent = trimmed.slice(9)
+    if (cmd === "tap") theContent = trimmed.slice(5)
 
     const tempId = `temp-${Date.now()}-${Math.random()}`
 
@@ -156,6 +158,20 @@ export default function ChatInput() {
     const insertId = await doInsertMessage(tempId, payload)
     if (profile) sendStopTyping(profile.id)
 
+    // Trigger shout popup directly (works even if realtime subscription missed the INSERT)
+    if (insertId && cmd === 'shout') {
+      const includeSelf = localStorage.getItem('include_self_shout') === 'true'
+      if (includeSelf) {
+        window.api.showShout({
+          sender: profile.nickname,
+          message: theContent || '',
+          gifUrl: pendingGifUrl || undefined,
+          spaceName: currentSpace?.name,
+          spaceIcon: currentSpace?.avatar_emoji,
+        })
+      }
+    }
+
     if (insertId) {
       setValue("")
       setPendingImage(null)
@@ -187,15 +203,26 @@ export default function ChatInput() {
     setValue(e.target.value)
     if (profile) sendTyping(profile.id)
     const cursor = e.target.selectionStart || 0
+
+    // Detect @mention (but not inside a /tap command at the start)
     const lastAt = e.target.value.lastIndexOf("@", cursor - 1)
     if (lastAt >= 0) {
       const q = e.target.value.slice(lastAt + 1, cursor)
-      if (!q.includes(" ")) {
+      if (!q.includes(" ") && !q.startsWith("/")) {
         setMentionQuery(q); setMentionActive(true)
-        const rect = textareaRef.current?.getBoundingClientRect()
-        setMentionPos({ top: (rect?.bottom || 0) + 4, left: 0 })
+        setCmdActive(false)
       } else { setMentionActive(false) }
     } else { setMentionActive(false) }
+
+    // Detect /command
+    const lastSlash = e.target.value.lastIndexOf("/", cursor - 1)
+    if (lastSlash >= 0 && (lastSlash === 0 || /[\s\n]/.test(e.target.value[lastSlash - 1]))) {
+      const q = e.target.value.slice(lastSlash + 1, cursor)
+      if (!q.includes(" ") && !q.includes("\n")) {
+        setCmdQuery(q); setCmdActive(true)
+        setMentionActive(false)
+      } else { setCmdActive(false) }
+    } else { setCmdActive(false) }
   }
 
   const handleMentionSelect = (nickname: string) => {
@@ -206,8 +233,18 @@ export default function ChatInput() {
     setTimeout(() => textareaRef.current?.focus(), 0)
   }
 
+  const handleCommandSelect = (command: string) => {
+    const cursor = textareaRef.current?.selectionStart || 0
+    const lastSlash = value.lastIndexOf("/", cursor - 1)
+    if (lastSlash >= 0) setValue(value.slice(0, lastSlash) + command + " " + value.slice(cursor))
+    setCmdActive(false)
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); setDragging(false)
+    e.preventDefault()
+    e.stopPropagation()
+    setDragging(false)
     const file = e.dataTransfer.files[0]
     if (file && file.type.startsWith("image/")) {
       debugLog({ source: "chat", message: "Image dropped", details: { name: file.name } })
@@ -244,13 +281,14 @@ export default function ChatInput() {
       )}
 
       {/* Input row */}
-      <div
-        className={"flex items-end gap-0.5 rounded-card border transition-all " +
-          (dragging ? "border-accent bg-accent/5" : "border-border-md")}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-      >
+      <div className="relative">
+        <div
+          className={"flex items-end gap-0.5 rounded-card border transition-all " +
+            (dragging ? "border-accent bg-accent/5" : "border-border-md")}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }}
+          onDragLeave={() => { setDragging(false) }}
+          onDrop={handleDrop}
+        >
         {/* ── Attachment button ── */}
         <Tooltip label="Attach file">
           <button
@@ -351,23 +389,31 @@ export default function ChatInput() {
           onKeyDown={handleKeyDown}
           rows={1}
           maxLength={2000}
-          placeholder="Message... (/shout or /whisper)"
+          placeholder="Message..."
           className="flex-1 bg-transparent text-text-hi text-sm font-body placeholder-text-lo focus:outline-none resize-none py-2 pr-2 scrollbar-thin"
           style={{ minHeight: '36px', maxHeight: '160px', overflowY: 'auto' }}
         />
       </div>
 
-      {/* Mention autocomplete */}
+      {/* @mention autocomplete */}
       {mentionActive && (
         <WhisperSuggest
           query={mentionQuery}
           members={members}
           onSelect={handleMentionSelect}
           onClose={() => setMentionActive(false)}
-          top={mentionPos.top}
-          left={mentionPos.left}
         />
       )}
+
+      {/* /command autocomplete */}
+      {cmdActive && (
+        <CommandSuggest
+          query={cmdQuery}
+          onSelect={handleCommandSelect}
+          onClose={() => setCmdActive(false)}
+        />
+      )}
+      </div>
 
       {/* Hint line (Discord-style) */}
       <div className="flex justify-between items-center mt-1 px-1">

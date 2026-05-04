@@ -10,7 +10,7 @@ function getPopupData(): PopupData {
   return { sender: "?", message: "" }
 }
 
-export default function WhisperPopup() {
+export default function TapPopup() {
   const [data] = useState(getPopupData)
 
   return (
@@ -25,19 +25,19 @@ export default function WhisperPopup() {
         }}
       >
         <div className="flex items-center gap-3">
-          {/* Lock/Whisper icon */}
+          {/* Tap icon */}
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(139,92,246,0.15)', boxShadow: '0 0 12px rgba(139,92,246,0.2)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <path d="M12 22c1.5 0 2-1 2-2.5S13.5 15 12 15s-2 2.5-2 2.5S10.5 22 12 22z"/>
+              <path d="M12 15C9 15 7 12 7 9c0-1.5.5-3 2-4 .5-.5 1-.5 2-.5 1.5 0 3 1 3 3 0-2 1.5-3 3-3s3 .5 3 2c0 2-3 4-3 6"/>
             </svg>
           </div>
           <span className="font-display font-bold text-2xl uppercase tracking-widest" style={{
             background: 'linear-gradient(90deg, rgba(167,139,250,1) 0%, rgba(139,92,246,1) 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-          }}>WHISPER</span>
+          }}>TAP</span>
           <span className="font-display text-sm" style={{ color: 'rgba(139,92,246,0.5)' }}>from {data.sender}</span>
         </div>
         <button
@@ -63,6 +63,11 @@ export default function WhisperPopup() {
             <img src={data.gifUrl} alt="GIF" className="max-h-32 object-contain" />
           </div>
         )}
+
+        {/* Dismiss hint */}
+        <p className="font-body text-xs" style={{ color: 'rgba(139,92,246,0.3)' }}>
+          Press anywhere to close
+        </p>
       </div>
     </div>
   )
