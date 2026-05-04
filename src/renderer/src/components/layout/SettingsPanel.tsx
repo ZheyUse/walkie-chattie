@@ -241,8 +241,8 @@ export default function SettingsPanel() {
         <div className="flex-1 overflow-y-auto">
           {onlineMembers.length > 0 && (
             <>
-              <div className="px-4 py-1.5 text-[10px] font-body uppercase tracking-wider flex items-center gap-1.5" style={{ borderBottom: '1px solid rgba(139,92,246,0.06)', color: 'rgba(139,92,246,0.5)' }}>
-                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'rgba(139,92,246,0.6)', boxShadow: '0 0 6px rgba(139,92,246,0.5)' }} />
+              <div className="px-4 py-1.5 text-[10px] font-body uppercase tracking-wider flex items-center gap-1.5" style={{ borderBottom: '1px solid rgba(139,92,246,0.06)', color: 'rgba(34,197,94,0.7)' }}>
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'rgba(34,197,94,0.8)', boxShadow: '0 0 6px rgba(34,197,94,0.6)' }} />
                 Online — {onlineMembers.length}
               </div>
               {onlineMembers.map(m => (

@@ -6,12 +6,13 @@ import { useChatStore, type Message } from '../../stores/chat.store'
 import { useAuthStore } from '../../stores/auth.store'
 import MessageItem from './MessageItem'
 import { debugLog } from '../../lib/debug'
+import { triggerNotification } from '../../lib/notifications'
 
 const PAGE_SIZE = 100
 const BOTTOM_THRESHOLD = 80
 
 export default function MessageList() {
-  const { currentSpace } = useSpaceStore()
+  const { currentSpace, setSpace } = useSpaceStore()
   const { profile } = useAuthStore()
   const { messages, setMessages, prependMessages, searchQuery, markSeen } = useChatStore()
   const listRef = useRef<HTMLDivElement>(null)
@@ -52,23 +53,21 @@ export default function MessageList() {
       .order('created_at', { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1)
       .then(({ data, count }) => {
-        if (!data) return
+        if (!data) { setLoadingOlder(false); return }
 
         const formatted = data.map(m => ({ ...m, status: 'sent' as const })) as Message[]
 
         if (offset === 0) {
           setMessages(formatted)
         } else {
-          // Prepend older messages, keep scroll position
           prependMessages(formatted)
         }
 
-        // Determine if there are more messages
         const totalCount = count ?? data.length
         setHasMore(offset + data.length < totalCount)
         setPageOffset(offset)
+        setLoadingOlder(false)
       })
-      .finally(() => setLoadingOlder(false))
   }
 
   // Load initial page
@@ -110,46 +109,82 @@ export default function MessageList() {
         }
 
         const isOwn = msg.sender_id === profile?.id
-        debugLog({
-          source: 'chat-realtime',
-          message: isOwn ? 'Realtime INSERT for own message' : 'Realtime INSERT for other member',
-          details: { msgId: msg.id, senderId: msg.sender_id, isOwn, type: msg.type },
-        })
-
-        setMessages(function(prev) {
-          if (isOwn) {
-            var existingIdx = prev.findIndex(function(m) {
-              return m.sender_id === msg.sender_id &&
-                m.space_id === msg.space_id &&
-                (m.tmpId || '').startsWith('temp-') &&
-                m.status === 'sending'
-            })
-
-            if (existingIdx !== -1) {
-              debugLog({
-                source: 'chat-realtime',
-                message: 'Replacing temp message with DB record',
-                details: { tempId: prev[existingIdx].id, realId: msg.id },
-              })
-              var next = [...prev]
-              next[existingIdx] = { ...msg, status: 'sent', tmpId: prev[existingIdx].tmpId } as Message
-              return next
-            }
-            if (prev.some(function(m) { return m.id === msg.id })) return prev
-            debugLog({ source: 'chat-realtime', message: 'No temp found — appending from DB', details: { msgId: msg.id } })
-            return [...prev, { ...msg, status: 'sent' } as Message]
-          }
-
-          if (prev.some(function(m) { return m.id === msg.id })) return prev
-          debugLog({
-            source: 'chat-realtime',
-            message: 'Other member message received',
-            details: { msgId: msg.id, sender: msg.sender_nickname },
+        if (!isOwn) {
+          triggerNotification({
+            title: msg.sender_nickname || 'New message',
+            body: msg.type === 'shout' ? '🔊 ' + (msg.content || '') :
+                  msg.type === 'whisper' || msg.type === 'tap' ? '💜 ' + (msg.content || '') :
+                  (msg.content || ''),
+            tag: msg.id,
           })
-          return [...prev, msg]
-        })
+        }
+
+        // Read current store snapshot and compute next state synchronously
+        const prev = useChatStore.getState().messages
+        let nextMessages: Message[]
+
+        if (isOwn) {
+          const existingIdx = prev.findIndex(function(m: Message) {
+            return m.sender_id === msg.sender_id &&
+              m.space_id === msg.space_id &&
+              (m.tmpId || '').startsWith('temp-') &&
+              m.status === 'sending'
+          })
+          if (existingIdx !== -1) {
+            debugLog({ source: 'chat-realtime', message: 'Replacing temp message with DB record', details: { tempId: prev[existingIdx].id, realId: msg.id } })
+            nextMessages = [...prev]
+            nextMessages[existingIdx] = { ...msg, status: 'sent', tmpId: prev[existingIdx].tmpId } as Message
+          } else if (prev.some(function(m: Message) { return m.id === msg.id })) {
+            debugLog({ source: 'chat-realtime', message: 'No temp found — appending from DB', details: { msgId: msg.id } })
+            nextMessages = [...prev, { ...msg, status: 'sent' } as Message]
+          } else {
+            nextMessages = prev
+          }
+        } else {
+          if (prev.some(function(m: Message) { return m.id === msg.id })) {
+            nextMessages = prev
+          } else {
+            debugLog({ source: 'chat-realtime', message: 'Other member message received', details: { msgId: msg.id, sender: msg.sender_nickname } })
+            nextMessages = [...prev, msg]
+          }
+        }
+
+        setMessages(nextMessages)
+
+        // Instantly refresh context window counter
+        supabase
+          .from('spaces')
+          .select('context_window_used')
+          .eq('id', currentSpace.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data && data.context_window_used !== undefined) {
+              const space = useSpaceStore.getState().currentSpace
+              if (space) setSpace({ ...space, context_window_used: data.context_window_used })
+            }
+          })
 
         autoScrollRef.current = true
+      })
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'messages',
+        filter: 'space_id=eq.' + currentSpace.id
+      }, function(payload) {
+        const deleted = payload.old as Message
+        const prev = useChatStore.getState().messages
+        setMessages(prev.filter(function(m: Message) { return m.id !== deleted.id }))
+        // Sync updated context window from DB
+        supabase
+          .from('spaces')
+          .select('context_window_used')
+          .eq('id', currentSpace.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data && data.context_window_used !== undefined) {
+              const space = useSpaceStore.getState().currentSpace
+              if (space) setSpace({ ...space, context_window_used: data.context_window_used })
+            }
+          })
       })
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'messages',
@@ -160,20 +195,35 @@ export default function MessageList() {
         if (newStatus === 'sent' && updated.sender_id !== profile?.id) {
           newStatus = 'delivered' as Message['status']
         }
-        setMessages(function(prev) {
-          return prev.map(function(m) {
-            if (m.id === updated.id || m.tmpId === updated.id) {
-              return { ...m, status: newStatus, seenBy: updated.seen_by ?? m.seenBy }
-            }
-            if (m.sender_id === updated.sender_id &&
-                m.space_id === m.space_id &&
-                (m.tmpId || '').startsWith('temp-') &&
-                m.status === 'sending') {
-              return { ...m, status: newStatus, seenBy: updated.seen_by ?? m.seenBy }
-            }
-            return m
-          })
+        const updatedSeenBy = (updated as any).seen_by ?? updated.seenBy
+        const prev = useChatStore.getState().messages
+        const nextMessages = prev.map(function(m: Message) {
+          if (m.id === updated.id || m.tmpId === updated.id) {
+            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy }
+          }
+          if (m.sender_id === updated.sender_id &&
+              m.space_id === m.space_id &&
+              (m.tmpId || '').startsWith('temp-') &&
+              m.status === 'sending') {
+            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy }
+          }
+          return m
         })
+        setMessages(nextMessages)
+        // Sync updated context window from DB (backend may have changed it)
+        supabase
+          .from('spaces')
+          .select('context_window_used')
+          .eq('id', currentSpace.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data && data.context_window_used !== undefined) {
+              const space = useSpaceStore.getState().currentSpace
+              if (space && space.context_window_used !== data.context_window_used) {
+                setSpace({ ...space, context_window_used: data.context_window_used })
+              }
+            }
+          })
       })
       .subscribe()
 
@@ -308,7 +358,8 @@ export default function MessageList() {
           var showAvatar = !prev || prev.sender_id !== msg.sender_id ||
             new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000
           var showNickname = showAvatar
-          return <div key={msg.id} data-msg-id={msg.id}><MessageItem msg={msg} showAvatar={showAvatar} showNickname={showNickname} /></div>
+          var showTimestamp = showAvatar
+          return <div key={msg.id} data-msg-id={msg.id}><MessageItem msg={msg} showAvatar={showAvatar} showNickname={showNickname} showTimestamp={showTimestamp} /></div>
         })}
       </div>
 
@@ -323,7 +374,7 @@ export default function MessageList() {
             boxShadow: '0 4px 16px rgba(139, 92, 246, 0.4)',
           }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>expand_less</span>
+          <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>expand_more</span>
           New messages
         </button>
       )}

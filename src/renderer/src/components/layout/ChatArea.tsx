@@ -59,7 +59,7 @@ export default function ChatArea() {
             <div className="ml-auto flex items-center gap-1.5">
               <div
                 className="w-1.5 h-1.5 rounded-full"
-                style={{ background: 'rgba(139, 92, 246, 0.5)', boxShadow: '0 0 6px rgba(139, 92, 246, 0.5)' }}
+                style={{ background: '#22c55e', boxShadow: '0 0 6px rgba(34, 197, 94, 0.6)' }}
               />
               <span className="text-text-lo text-[11px]">live</span>
             </div>

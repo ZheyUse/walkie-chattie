@@ -54,9 +54,9 @@ export default function Avatar({ nickname, color = "#8b5cf6", size = "md", showS
           className={`absolute bottom-0 right-0 ${s.dot} rounded-full border-bg-base`}
           style={{
             background: online
-              ? `linear-gradient(135deg, #8b5cf6, #a78bfa)`
+              ? `linear-gradient(135deg, #22c55e, #4ade80)`
               : 'rgba(90,100,120,0.5)',
-            boxShadow: online ? `0 0 6px ${color}88` : 'none',
+            boxShadow: online ? `0 0 6px #22c55e88` : 'none',
           }}
         />
       )}

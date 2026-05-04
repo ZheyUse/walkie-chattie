@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from "electron"
+import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, Notification } from "electron"
 import { join, resolve } from "path"
 
 // isDev: detect if running in dev mode
@@ -310,6 +310,31 @@ app.whenReady().then(() => {
   })
   ipcMain.handle("debug-get-logs", () => debugLogs)
   ipcMain.on("debug-clear", () => { debugLogs.length = 0 })
+
+  // IPC: native OS notification
+  ipcMain.on("show-notification", (_, data: { title: string; body: string; tag?: string }) => {
+    if (!Notification.isSupported()) {
+      addDebugLog("warn", "main-window", "OS notifications not supported on this platform")
+      return
+    }
+    const notification = new Notification({
+      title: data.title,
+      body: data.body,
+      silent: false,
+    })
+    notification.on("click", () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.show()
+        mainWindow.focus()
+        mainWindow.webContents.send("notification-clicked", data.tag || "")
+      }
+    })
+    notification.show()
+  })
+
+  // IPC: check if window is focused (used by renderer to decide in-app vs OS notification)
+  ipcMain.handle("is-window-focused", () => mainWindow?.isFocused() ?? false)
 
   createWindow()
   createTray()

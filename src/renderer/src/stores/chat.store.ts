@@ -1,10 +1,16 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { debugLog } from '../lib/debug'
-import type { Space } from './space.store'
 
 export type MessageType = 'chat' | 'shout' | 'whisper' | 'tap' | 'system'
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error'
+
+export interface MessageReaction {
+  emoji: string
+  count: number
+  reacted: boolean
+  userIds: string[]
+}
 
 export interface Message {
   id: string
@@ -18,9 +24,9 @@ export interface Message {
   target_user_id: string | null
   created_at: string
   status?: MessageStatus
-  /** Used when a temp ID is shown before the real DB ID is assigned */
   tmpId?: string
   seenBy?: string[]
+  reactions?: MessageReaction[]
 }
 
 interface ChatState {
@@ -30,11 +36,13 @@ interface ChatState {
   pendingGifPreview: string | null
   searchQuery: string
   loading: boolean
+  editingMessage: Message | null
   setMessages: (msgs: Message[]) => void
   prependMessage: (msg: Message) => void
   prependMessages: (msgs: Message[]) => void
   updateMessageStatus: (lookupId: string, status: MessageStatus) => void
   replaceMessage: (lookupId: string, msg: Message) => void
+  updateMessageContent: (lookupId: string, content: string) => void
   removeMessage: (id: string) => void
   markSeen: (msgId: string, userId: string) => void
   retryMessage: (msg: Message) => Promise<void>
@@ -42,6 +50,8 @@ interface ChatState {
   setPendingGif: (url: string | null, preview: string | null) => void
   setSearchQuery: (q: string) => void
   setLoading: (l: boolean) => void
+  setEditingMessage: (msg: Message | null) => void
+  toggleReaction: (lookupId: string, emoji: string, userId: string) => void
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -51,111 +61,109 @@ export const useChatStore = create<ChatState>((set) => ({
   pendingGifPreview: null,
   searchQuery: '',
   loading: false,
+  editingMessage: null,
+
   setMessages: (msgs) => {
     debugLog({ source: 'chat', message: '[store] setMessages', details: { count: msgs.length } })
     set({ messages: msgs })
   },
+
   prependMessage: (msg) => {
-    debugLog({
-      source: 'chat',
-      message: '[store] prependMessage',
-      details: { id: msg.id, tmpId: msg.tmpId, status: msg.status, sender: msg.sender_nickname, type: msg.type },
-    })
+    debugLog({ source: 'chat', message: '[store] prependMessage', details: { id: msg.id, status: msg.status } })
     set((s) => ({ messages: [...s.messages, msg] }))
   },
+
   prependMessages: (msgs) => set((s) => ({ messages: [...msgs, ...s.messages] })),
+
   updateMessageStatus: (lookupId, status) => {
-    debugLog({ source: 'chat', message: '[store] updateMessageStatus', details: { lookupId, newStatus: status } })
-    set((s) => {
-      const matched = s.messages.some(m => m.id === lookupId || m.tmpId === lookupId)
-      if (!matched) {
-        debugLog({ level: 'warn', source: 'chat', message: '[store] updateMessageStatus — no match found', details: { lookupId, status } })
-      }
-      return {
-        messages: s.messages.map(m => (m.id === lookupId || m.tmpId === lookupId) ? { ...m, status } : m)
-      }
-    })
+    debugLog({ source: 'chat', message: '[store] updateMessageStatus', details: { lookupId, status } })
+    set((s) => ({
+      messages: s.messages.map(m =>
+        (m.id === lookupId || m.tmpId === lookupId) ? { ...m, status } : m
+      )
+    }))
   },
+
   replaceMessage: (lookupId, msg) => {
-    debugLog({
-      source: 'chat',
-      message: '[store] replaceMessage',
-      details: { lookupId, newId: msg.id, newStatus: msg.status, sender: msg.sender_nickname },
-    })
-    set((s) => {
-      const matched = s.messages.some(m => m.id === lookupId || m.tmpId === lookupId)
-      if (!matched) {
-        debugLog({ level: 'warn', source: 'chat', message: '[store] replaceMessage — no match found', details: { lookupId, newId: msg.id } })
-      }
-      return { messages: s.messages.map(m => (m.id === lookupId || m.tmpId === lookupId) ? msg : m) }
-    })
+    debugLog({ source: 'chat', message: '[store] replaceMessage', details: { lookupId, newId: msg.id } })
+    set((s) => ({
+      messages: s.messages.map(m => (m.id === lookupId || m.tmpId === lookupId) ? msg : m)
+    }))
   },
-  removeMessage: (id) => set((s) => ({
-    messages: s.messages.filter(m => m.id !== id)
-  })),
-  markSeen: (msgId: string, userId: string) => {
+
+  updateMessageContent: (lookupId, content) => {
+    debugLog({ source: 'chat', message: '[store] updateMessageContent', details: { lookupId } })
+    set((s) => ({
+      messages: s.messages.map(m => (m.id === lookupId || m.tmpId === lookupId) ? { ...m, content } : m)
+    }))
+  },
+
+  removeMessage: (id) => set((s) => ({ messages: s.messages.filter(m => m.id !== id) })),
+
+  markSeen: (msgId, userId) => {
     set((s) => {
       const msg = s.messages.find(m => m.id === msgId || m.tmpId === msgId)
       if (!msg || msg.seenBy?.includes(userId) || msg.sender_id === userId) return {}
       const newSeenBy = [...(msg.seenBy || []), userId]
-      debugLog({ source: 'chat', message: '[store] markSeen', details: { msgId, userId, newSeenBy } })
       return {
         messages: s.messages.map(m =>
           (m.id === msgId || m.tmpId === msgId) ? { ...m, seenBy: newSeenBy } : m
         )
       }
     })
-    supabase
-      .from('messages')
-      .select('seen_by')
-      .eq('id', msgId)
-      .maybeSingle()
+    supabase.from('messages').select('seen_by').eq('id', msgId).maybeSingle()
       .then(({ data }) => {
         const current = data?.seen_by || []
         if (!userId || current.includes(userId)) return
         const updated = [...current.filter((id: string) => id !== null), userId]
         return supabase.from('messages').update({ seen_by: updated }).eq('id', msgId)
       })
-      .then(({ error }) => {
-        if (error) debugLog({ level: 'error', source: 'chat', message: '[store] markSeen DB failed', details: { msgId, error } })
-        else debugLog({ level: 'success', source: 'chat', message: '[store] markSeen DB updated', details: { msgId, userId } })
-      })
   },
+
   retryMessage: async (msg) => {
-    debugLog({ source: 'chat', message: '[store] retryMessage', details: { id: msg.id, type: msg.type } })
+    debugLog({ source: 'chat', message: '[store] retryMessage', details: { id: msg.id } })
     set((s) => ({ messages: s.messages.map(m => (m.id === msg.id || m.tmpId === msg.id) ? { ...m, status: 'sending' } : m) }))
-
-    const payload = {
-      space_id: msg.space_id,
-      sender_id: msg.sender_id,
-      sender_nickname: msg.sender_nickname,
-      type: msg.type,
-      content: msg.content,
-      image_url: msg.image_url,
-      gif_url: msg.gif_url,
-      target_user_id: msg.target_user_id,
-    }
-
-    const { data: inserted, error } = await supabase
-      .from('messages')
-      .insert(payload)
-      .select()
-      .single()
-
+    const payload = { space_id: msg.space_id, sender_id: msg.sender_id, sender_nickname: msg.sender_nickname, type: msg.type, content: msg.content, image_url: msg.image_url, gif_url: msg.gif_url, target_user_id: msg.target_user_id }
+    const { data: inserted, error } = await supabase.from('messages').insert(payload).select().single()
     if (error) {
       set((s) => ({ messages: s.messages.map(m => (m.id === msg.id || m.tmpId === msg.id) ? { ...m, status: 'error' } : m) }))
       return
     }
-
-    // Remove the error temp msg and insert the new real one
     set((s) => ({
-      messages: s.messages
-        .filter(m => m.id !== msg.id && m.tmpId !== msg.id)
-        .concat([{ ...inserted, status: 'sent' } as Message])
+      messages: s.messages.filter(m => m.id !== msg.id && m.tmpId !== msg.id).concat([{ ...inserted, status: 'sent' } as Message])
     }))
   },
+
   setPendingImage: (f) => set({ pendingImage: f }),
   setPendingGif: (url, preview) => set({ pendingGifUrl: url, pendingGifPreview: preview }),
   setSearchQuery: (q) => set({ searchQuery: q }),
-  setLoading: (l) => set({ loading: l })
+  setLoading: (l) => set({ loading: l }),
+
+  setEditingMessage: (msg) => set({ editingMessage: msg }),
+
+  toggleReaction: (lookupId, emoji, userId) => {
+    set((s) => ({
+      messages: s.messages.map(m => {
+        if (m.id !== lookupId && m.tmpId !== lookupId) return m
+        const reactions = [...(m.reactions || [])]
+        const idx = reactions.findIndex(r => r.emoji === emoji)
+        if (idx !== -1) {
+          const r = reactions[idx]
+          if (r.userIds.includes(userId)) {
+            const newUserIds = r.userIds.filter(id => id !== userId)
+            if (newUserIds.length === 0) {
+              reactions.splice(idx, 1)
+            } else {
+              reactions[idx] = { ...r, count: r.count - 1, reacted: false, userIds: newUserIds }
+            }
+          } else {
+            reactions[idx] = { ...r, count: r.count + 1, reacted: true, userIds: [...r.userIds, userId] }
+          }
+        } else {
+          reactions.push({ emoji, count: 1, reacted: true, userIds: [userId] })
+        }
+        return { ...m, reactions }
+      })
+    }))
+  },
 }))

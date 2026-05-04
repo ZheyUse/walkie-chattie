@@ -12,6 +12,7 @@ import WhisperSuggest from "./WhisperSuggest"
 import CommandSuggest from "./CommandSuggest"
 import { debugLog } from "../../lib/debug"
 import { sendTyping, sendStopTyping } from "../../lib/typing-channel"
+import { toast } from "../../lib/toast"
 import type { Message } from "../../stores/chat.store"
 
 // Tooltip component reused for all icon buttons
@@ -43,6 +44,9 @@ export default function ChatInput() {
   const pendingGifUrl = useChatStore(s => s.pendingGifUrl)
   const pendingGifPreview = useChatStore(s => s.pendingGifPreview)
   const setPendingGif = useChatStore(s => s.setPendingGif)
+  const editingMessage = useChatStore(s => s.editingMessage)
+  const setEditingMessage = useChatStore(s => s.setEditingMessage)
+  const updateMessageContent = useChatStore(s => s.updateMessageContent)
   const members = useSpaceStore(s => s.members)
   const currentSpace = useSpaceStore(s => s.currentSpace)
   const profile = useAuthStore(s => s.profile)
@@ -75,6 +79,22 @@ export default function ChatInput() {
     setShowGif(false)
     setShowStickers(false)
     setShowEmoji(false)
+  }
+
+  // Populate textarea when edit starts
+  useEffect(() => {
+    if (editingMessage) {
+      setValue(editingMessage.content || '')
+      textareaRef.current?.focus()
+      textareaRef.current?.scrollIntoView({ block: 'nearest' })
+    } else {
+      setValue('')
+    }
+  }, [editingMessage])
+
+  const cancelEdit = () => {
+    setEditingMessage(null)
+    setValue('')
   }
 
   const detectCommand = (text: string) => {
@@ -255,7 +275,14 @@ export default function ChatInput() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      send()
+      if (editingMessage) {
+        submitEdit()
+      } else {
+        send()
+      }
+    }
+    if (e.key === "Escape") {
+      cancelEdit()
     }
   }
 
@@ -315,6 +342,21 @@ export default function ChatInput() {
   const handleEmojiInsert = (emoji: string) => {
     insertEmoji(textareaRef.current, emoji)
     textareaRef.current?.focus()
+  }
+
+  const submitEdit = async () => {
+    if (!editingMessage || !value.trim()) return
+    const newContent = value.trim()
+    if (newContent === editingMessage.content) {
+      cancelEdit()
+      return
+    }
+    const lookupId = editingMessage.id
+    updateMessageContent(lookupId, newContent)
+    await supabase.from('messages').update({ content: newContent }).eq('id', lookupId)
+    toast('Message updated')
+    if (profile) sendStopTyping(profile.id)
+    cancelEdit()
   }
 
   const hasContent = value.trim() || pendingImage || pendingGifUrl
@@ -435,11 +477,27 @@ export default function ChatInput() {
           onKeyDown={handleKeyDown}
           rows={1}
           maxLength={2000}
-          placeholder="Message..."
+          placeholder={editingMessage ? "Edit message..." : "Message..."}
           className="flex-1 bg-transparent text-text-hi text-sm font-body placeholder-text-lo focus:outline-none resize-none py-2 pr-2 scrollbar-thin"
           style={{ minHeight: '36px', maxHeight: '160px', overflowY: 'auto' }}
         />
       </div>
+
+      {/* Editing indicator */}
+      {editingMessage && (
+        <div className='flex items-center gap-2 px-1 mt-1.5 mb-0.5'>
+          <span className="material-symbols-outlined" style={{ fontSize: '12px', color: 'rgba(139,92,246,0.7)' }}>edit</span>
+          <span className='text-xs font-display font-semibold' style={{ color: 'rgba(139,92,246,0.7)' }}>Editing message</span>
+          <button
+            onClick={cancelEdit}
+            className='ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-xs font-display transition-colors hover:bg-white/[0.06]'
+            style={{ color: 'rgba(232,234,237,0.5)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '11px' }}>close</span>
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* @mention autocomplete */}
       {mentionActive && (

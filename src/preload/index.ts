@@ -10,6 +10,12 @@ export type PopupData = {
   type: 'shout' | 'whisper' | 'tap'
 }
 
+export type NotificationPayload = {
+  title: string
+  body: string
+  tag?: string
+}
+
 export type DebugLogEntry = {
   id: number
   timestamp: string
@@ -58,6 +64,16 @@ const api = {
 
   // Custom protocol redirect URI for OAuth
   getOAuthRedirectUri: () => 'walkie-chattie://login-callback',
+
+  // Native OS notifications
+  showNotification: (data: NotificationPayload) =>
+    ipcRenderer.send('show-notification', data),
+  onNotificationClicked: (callback: (tag: string) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, tag: string) => callback(tag)
+    ipcRenderer.on('notification-clicked', listener)
+    return () => ipcRenderer.removeListener('notification-clicked', listener)
+  },
+  isWindowFocused: () => ipcRenderer.invoke('is-window-focused') as Promise<boolean>,
 }
 
 contextBridge.exposeInMainWorld('api', api)

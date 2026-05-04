@@ -8,6 +8,7 @@ import DashboardPage from "./pages/DashboardPage"
 import DebugPage from "./pages/DebugPage"
 import RoomModal from "./components/modals/RoomModal"
 import ToastContainer from "./components/ui/ToastContainer"
+import InAppNotification from "./components/ui/InAppNotification"
 import ShoutPopup from "./components/popups/ShoutPopup"
 import TapPopup from "./components/popups/TapPopup"
 import { debugLog } from "./lib/debug"
@@ -530,6 +531,7 @@ export default function App() {
     <>
       <DashboardPage />
       <ToastContainer />
+      <InAppNotification />
     </>
   )
 }
