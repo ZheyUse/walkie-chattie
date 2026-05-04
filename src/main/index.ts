@@ -315,7 +315,8 @@ app.whenReady().then(() => {
   createTray()
 
   // Auto-start
-  app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
+  // TODO (PRODUCTION): Uncomment this when ready to ship
+  // app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

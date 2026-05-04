@@ -20,6 +20,7 @@ export interface Message {
   status?: MessageStatus
   /** Used when a temp ID is shown before the real DB ID is assigned */
   tmpId?: string
+  seenBy?: string[]
 }
 
 interface ChatState {
@@ -31,9 +32,11 @@ interface ChatState {
   loading: boolean
   setMessages: (msgs: Message[]) => void
   prependMessage: (msg: Message) => void
+  prependMessages: (msgs: Message[]) => void
   updateMessageStatus: (lookupId: string, status: MessageStatus) => void
   replaceMessage: (lookupId: string, msg: Message) => void
   removeMessage: (id: string) => void
+  markSeen: (msgId: string, userId: string) => void
   retryMessage: (msg: Message) => Promise<void>
   setPendingImage: (f: File | null) => void
   setPendingGif: (url: string | null, preview: string | null) => void
@@ -60,6 +63,7 @@ export const useChatStore = create<ChatState>((set) => ({
     })
     set((s) => ({ messages: [...s.messages, msg] }))
   },
+  prependMessages: (msgs) => set((s) => ({ messages: [...msgs, ...s.messages] })),
   updateMessageStatus: (lookupId, status) => {
     debugLog({ source: 'chat', message: '[store] updateMessageStatus', details: { lookupId, newStatus: status } })
     set((s) => {
@@ -89,6 +93,34 @@ export const useChatStore = create<ChatState>((set) => ({
   removeMessage: (id) => set((s) => ({
     messages: s.messages.filter(m => m.id !== id)
   })),
+  markSeen: (msgId: string, userId: string) => {
+    set((s) => {
+      const msg = s.messages.find(m => m.id === msgId || m.tmpId === msgId)
+      if (!msg || msg.seenBy?.includes(userId) || msg.sender_id === userId) return {}
+      const newSeenBy = [...(msg.seenBy || []), userId]
+      debugLog({ source: 'chat', message: '[store] markSeen', details: { msgId, userId, newSeenBy } })
+      return {
+        messages: s.messages.map(m =>
+          (m.id === msgId || m.tmpId === msgId) ? { ...m, seenBy: newSeenBy } : m
+        )
+      }
+    })
+    supabase
+      .from('messages')
+      .select('seen_by')
+      .eq('id', msgId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const current = data?.seen_by || []
+        if (!userId || current.includes(userId)) return
+        const updated = [...current.filter((id: string) => id !== null), userId]
+        return supabase.from('messages').update({ seen_by: updated }).eq('id', msgId)
+      })
+      .then(({ error }) => {
+        if (error) debugLog({ level: 'error', source: 'chat', message: '[store] markSeen DB failed', details: { msgId, error } })
+        else debugLog({ level: 'success', source: 'chat', message: '[store] markSeen DB updated', details: { msgId, userId } })
+      })
+  },
   retryMessage: async (msg) => {
     debugLog({ source: 'chat', message: '[store] retryMessage', details: { id: msg.id, type: msg.type } })
     set((s) => ({ messages: s.messages.map(m => (m.id === msg.id || m.tmpId === msg.id) ? { ...m, status: 'sending' } : m) }))

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { supabase } from "../../lib/supabase"
 import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore } from "../../stores/space.store"
+import Modal from "../ui/Modal"
 import CreateSpaceForm from "./CreateSpaceForm"
 
 interface Props { onClose: () => void; closable?: boolean }
@@ -10,40 +11,23 @@ export default function RoomModal({ onClose, closable = false }: Props) {
   const [tab, setTab] = useState<"join" | "create">("join")
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className={"absolute inset-0 bg-bg-deep/80 backdrop-blur-sm" + (closable ? " cursor-pointer" : "")}
-        onClick={closable ? onClose : undefined}
-      />
-      <div className="relative z-10 bg-bg-panel border border-border-md rounded-modal p-6 w-96 shadow-2xl">
-        {closable && (
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 w-7 h-7 rounded text-text-lo hover:text-text-hi hover:bg-bg-hover flex items-center justify-center transition-colors"
-            title="Close"
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-            </svg>
-          </button>
-        )}
-        <div className="text-center mb-5">
-          <div className="text-4xl mb-1">Walkie-Chattie</div>
-          <p className="text-text-lo text-sm font-body">Join a Space or create a new one</p>
-        </div>
-        <div className="flex gap-1 mb-5 bg-bg-surface rounded-input p-1">
-          <button onClick={() => setTab("join")}
-            className={"flex-1 py-1.5 text-sm rounded-input font-display font-semibold transition-all " + (tab === "join" ? "bg-accent text-bg-deep" : "text-text-md hover:text-text-hi")}>
-            Join
-          </button>
-          <button onClick={() => setTab("create")}
-            className={"flex-1 py-1.5 text-sm rounded-input font-display font-semibold transition-all " + (tab === "create" ? "bg-accent text-bg-deep" : "text-text-md hover:text-text-hi")}>
-            Create
-          </button>
-        </div>
-        {tab === "join" ? <JoinView onJoined={onClose} /> : <CreateSpaceForm />}
+    <Modal open onClose={onClose} closable={closable} size="lg">
+      <div className="text-center mb-5">
+        <div className="text-4xl mb-1">Walkie-Chattie</div>
+        <p className="text-text-lo text-sm font-body">Join a Space or create a new one</p>
       </div>
-    </div>
+      <div className="flex gap-1 mb-5 bg-bg-surface rounded-input p-1">
+        <button onClick={() => setTab("join")}
+          className={"flex-1 py-1.5 text-sm rounded-input font-display font-semibold transition-all " + (tab === "join" ? "bg-accent text-bg-deep" : "text-text-md hover:text-text-hi")}>
+          Join
+        </button>
+        <button onClick={() => setTab("create")}
+          className={"flex-1 py-1.5 text-sm rounded-input font-display font-semibold transition-all " + (tab === "create" ? "bg-accent text-bg-deep" : "text-text-md hover:text-text-hi")}>
+          Create
+        </button>
+      </div>
+      {tab === "join" ? <JoinView onJoined={onClose} /> : <CreateSpaceForm />}
+    </Modal>
   )
 }
 

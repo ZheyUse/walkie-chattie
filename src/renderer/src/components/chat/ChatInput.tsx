@@ -334,7 +334,7 @@ export default function ChatInput() {
             </button>
           </Tooltip>
           {showEmoji && (
-            <div className="emoji-popover" style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: 8, zIndex: 50 }}>
+            <div className="emoji-popover" style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: 8, zIndex: 50 }}>
               <EmojiPicker onClose={() => setShowEmoji(false)} onInsert={handleEmojiInsert} />
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useSpaceStore } from '../../stores/space.store'
 import { useChatStore, type Message } from '../../stores/chat.store'
@@ -6,23 +6,77 @@ import { useAuthStore } from '../../stores/auth.store'
 import MessageItem from './MessageItem'
 import { debugLog } from '../../lib/debug'
 
+const PAGE_SIZE = 100
+const BOTTOM_THRESHOLD = 80
+
 export default function MessageList() {
   const { currentSpace } = useSpaceStore()
   const { profile } = useAuthStore()
-  const { messages, setMessages, searchQuery, updateMessageStatus } = useChatStore()
+  const { messages, setMessages, prependMessages, searchQuery, markSeen } = useChatStore()
   const listRef = useRef<HTMLDivElement>(null)
-  var shouldScrollRef = useRef(true)
+  const msgObserverRef = useRef<IntersectionObserver | null>(null)
+  const markedRef = useRef<Set<string>>(new Set())
+  const profileIdRef = useRef<string | undefined>(profile?.id)
+  const isAtBottomRef = useRef(true)
+  const autoScrollRef = useRef(false)
+  const [showJumpBtn, setShowJumpBtn] = useState(false)
 
+  // Pagination state
+  const [pageOffset, setPageOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const prevMessagesLenRef = useRef(0)
+
+  useEffect(() => { profileIdRef.current = profile?.id }, [profile?.id])
+
+  // Scroll to bottom when messages first load (not on pagination prepends)
   useEffect(() => {
+    if (messages.length === 0 || pageOffset > 0) return
+    requestAnimationFrame(() => {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
+    })
+  }, [messages.length, pageOffset])
+
+  // Fetch messages for a given offset
+  const fetchMessages = (offset: number, resetLoad = false) => {
     if (!currentSpace) return
-    setMessages([])
+
+    if (resetLoad) setMessages([])
+    else setLoadingOlder(true)
+
     supabase
       .from('messages')
       .select('*')
       .eq('space_id', currentSpace.id)
       .order('created_at', { ascending: true })
-      .limit(100)
-      .then(({ data }) => { if (data) setMessages(data) })
+      .range(offset, offset + PAGE_SIZE - 1)
+      .then(({ data, count }) => {
+        if (!data) return
+
+        const formatted = data.map(m => ({ ...m, status: 'sent' as const })) as Message[]
+
+        if (offset === 0) {
+          setMessages(formatted)
+        } else {
+          // Prepend older messages, keep scroll position
+          prependMessages(formatted)
+        }
+
+        // Determine if there are more messages
+        const totalCount = count ?? data.length
+        setHasMore(offset + data.length < totalCount)
+        setPageOffset(offset)
+      })
+      .finally(() => setLoadingOlder(false))
+  }
+
+  // Load initial page
+  useEffect(() => {
+    if (!currentSpace) return
+    setPageOffset(0)
+    setHasMore(true)
+    markedRef.current.clear()
+    fetchMessages(0, true)
 
     var ch = supabase
       .channel('space:' + currentSpace.id)
@@ -32,7 +86,6 @@ export default function MessageList() {
       }, async function(payload) {
         var msg = payload.new as Message
 
-        // Show shout/whisper popups
         if (msg.type === 'shout') {
           const includeSelf = localStorage.getItem('include_self_shout') === 'true'
           const isOwnForShout = msg.sender_id === profile?.id
@@ -47,7 +100,6 @@ export default function MessageList() {
           }
         }
 
-        // Handle own vs other messages
         const isOwn = msg.sender_id === profile?.id
         debugLog({
           source: 'chat-realtime',
@@ -56,10 +108,7 @@ export default function MessageList() {
         })
 
         setMessages(function(prev) {
-          // Find the temp placeholder (identified by tmpId) for our own messages
           if (isOwn) {
-            // Look for a temp message from the same sender/space/time
-            // We stored it as: id=tempId, tmpId=tempId, status=sending
             var existingIdx = prev.findIndex(function(m) {
               return m.sender_id === msg.sender_id &&
                 m.space_id === msg.space_id &&
@@ -73,19 +122,15 @@ export default function MessageList() {
                 message: 'Replacing temp message with DB record',
                 details: { tempId: prev[existingIdx].id, realId: msg.id },
               })
-              // Replace the temp entry with the real DB record, keeping status='sent'
               var next = [...prev]
               next[existingIdx] = { ...msg, status: 'sent', tmpId: prev[existingIdx].tmpId } as Message
               return next
             }
-            // No temp found — but the db record itself IS the confirmation
-            // Check if already exists (from a direct append)
             if (prev.some(function(m) { return m.id === msg.id })) return prev
             debugLog({ source: 'chat-realtime', message: 'No temp found — appending from DB', details: { msgId: msg.id } })
             return [...prev, { ...msg, status: 'sent' } as Message]
           }
 
-          // Other member's message — this is "received"
           if (prev.some(function(m) { return m.id === msg.id })) return prev
           debugLog({
             source: 'chat-realtime',
@@ -95,7 +140,7 @@ export default function MessageList() {
           return [...prev, msg]
         })
 
-        shouldScrollRef.current = true
+        autoScrollRef.current = true
       })
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'messages',
@@ -103,31 +148,19 @@ export default function MessageList() {
       }, function(payload) {
         var updated = payload.new as Message
         var newStatus = (updated.status || 'sent') as Message['status']
-        debugLog({
-          source: 'chat-realtime',
-          message: 'Status update received',
-          details: { msgId: updated.id, newStatus, senderId: updated.sender_id },
-        })
         if (newStatus === 'sent' && updated.sender_id !== profile?.id) {
-          // Mark as delivered for messages from other members that just got inserted/confirmed
           newStatus = 'delivered' as Message['status']
         }
         setMessages(function(prev) {
           return prev.map(function(m) {
             if (m.id === updated.id || m.tmpId === updated.id) {
-              return { ...m, status: newStatus }
+              return { ...m, status: newStatus, seenBy: updated.seen_by ?? m.seenBy }
             }
-            // Also check if there's a sending message from the same sender that should be updated
             if (m.sender_id === updated.sender_id &&
-                m.space_id === updated.space_id &&
+                m.space_id === m.space_id &&
                 (m.tmpId || '').startsWith('temp-') &&
                 m.status === 'sending') {
-              debugLog({
-                source: 'chat-realtime',
-                message: 'Found sending msg matched by sender - updating status',
-                details: { msgId: m.id, updatedId: updated.id, newStatus },
-              })
-              return { ...m, status: newStatus }
+              return { ...m, status: newStatus, seenBy: updated.seen_by ?? m.seenBy }
             }
             return m
           })
@@ -138,15 +171,94 @@ export default function MessageList() {
     return function() { supabase.removeChannel(ch) }
   }, [currentSpace?.id])
 
-  // Auto-scroll
+  // Track scroll: detect user scrolled to top (load older) or bottom (enable auto-scroll)
   useEffect(() => {
-    if (shouldScrollRef.current && listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight
-      shouldScrollRef.current = false
-    }
-  }, [messages.length])
+    const el = listRef.current
+    if (!el) return
 
-  // Filter messages by search query
+    const handleScroll = () => {
+      const atTop = el.scrollTop < 100
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD
+
+      isAtBottomRef.current = atBottom
+      setShowJumpBtn(!atBottom)
+
+      if (atTop && hasMore && !loadingOlder && pageOffset > 0) {
+        fetchMessages(pageOffset)
+      }
+
+      if (atBottom) autoScrollRef.current = true
+    }
+
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [hasMore, loadingOlder, pageOffset, messages.length])
+
+  // Auto-scroll on new messages (only when at bottom and not searching)
+  useEffect(() => {
+    // Detect if a new message was appended (not prepended)
+    const addedMessage = messages.length > prevMessagesLenRef.current
+    prevMessagesLenRef.current = messages.length
+
+    if (!addedMessage || !autoScrollRef.current || !isAtBottomRef.current || searchQuery.trim()) {
+      autoScrollRef.current = false
+      return
+    }
+
+    requestAnimationFrame(() => {
+      if (!listRef.current) return
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+      autoScrollRef.current = false
+    })
+  }, [messages.length, searchQuery])
+
+  // IntersectionObserver for seen tracking
+  useEffect(() => {
+    if (!listRef.current) return
+
+    const intersectObs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          const el = entry.target as HTMLElement
+          const msgId = el.dataset.msgId
+          if (!msgId || markedRef.current.has(msgId)) return
+          const msg = messages.find(m => m.id === msgId || m.tmpId === msgId)
+          if (!msg || msg.sender_id === profileIdRef.current || msg.status === 'sending' || msg.status === 'error') return
+          markedRef.current.add(msgId)
+          const pid = profileIdRef.current
+          if (pid) markSeen(msgId, pid)
+        })
+      },
+      { threshold: 0.3 }
+    )
+
+    const mutObs = new MutationObserver(() => {
+      if (!listRef.current) return
+      listRef.current.querySelectorAll('[data-msg-id]').forEach(el => {
+        if (!(el as HTMLElement).dataset._observed) {
+          (el as HTMLElement).dataset._observed = '1'
+          intersectObs.observe(el)
+        }
+      })
+    })
+
+    mutObs.observe(listRef.current, { childList: true, subtree: false })
+    msgObserverRef.current = intersectObs
+
+    return () => {
+      intersectObs.disconnect()
+      mutObs.disconnect()
+    }
+  }, [markSeen])
+
+  const scrollToBottom = () => {
+    isAtBottomRef.current = true
+    autoScrollRef.current = true
+    setShowJumpBtn(false)
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+  }
+
   var visible = messages
   if (searchQuery.trim()) {
     var q = searchQuery.toLowerCase()
@@ -156,19 +268,45 @@ export default function MessageList() {
   }
 
   return (
-    <div ref={listRef} className='flex-1 overflow-y-auto px-2 py-2 flex flex-col gap-0.5'>
-      {messages.length === 0 && (
-        <div className='flex-1 flex items-center justify-center'>
-          <p className='text-text-lo text-sm font-body'>No messages yet. Say hi!</p>
-        </div>
+    <div className='relative flex-1'>
+      <div
+        ref={listRef}
+        className='absolute inset-0 overflow-y-auto px-2 py-2 flex flex-col gap-0.5'
+      >
+        {/* Load more indicator */}
+        {loadingOlder && (
+          <div className='flex justify-center py-2'>
+            <span className='text-text-lo text-xs animate-pulse'>Loading older messages...</span>
+          </div>
+        )}
+
+        {messages.length === 0 && !loadingOlder && (
+          <div className='flex-1 flex items-center justify-center'>
+            <p className='text-text-lo text-sm font-body'>No messages yet. Say hi!</p>
+          </div>
+        )}
+
+        {visible.map(function(msg, i) {
+          var prev = visible[i - 1]
+          var showAvatar = !prev || prev.sender_id !== msg.sender_id ||
+            new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000
+          var showNickname = showAvatar
+          return <div key={msg.id} data-msg-id={msg.id}><MessageItem msg={msg} showAvatar={showAvatar} showNickname={showNickname} /></div>
+        })}
+      </div>
+
+      {showJumpBtn && !searchQuery.trim() && (
+        <button
+          onClick={scrollToBottom}
+          aria-label='Scroll to latest message'
+          className='absolute bottom-4 right-4 z-40 flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs font-body rounded-full shadow-lg hover:bg-accent/90 transition-all'
+        >
+          <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+            <path d='M12 5v14M5 12l7 7 7-7' />
+          </svg>
+          Jump to bottom
+        </button>
       )}
-      {visible.map(function(msg, i) {
-        var prev = visible[i - 1]
-        var showAvatar = !prev || prev.sender_id !== msg.sender_id ||
-          new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000
-        var showNickname = showAvatar
-        return <MessageItem key={msg.id} msg={msg} showAvatar={showAvatar} showNickname={showNickname} />
-      })}
     </div>
   )
 }

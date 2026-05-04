@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSpaceStore, type Member } from '../../stores/space.store'
 import { useChatStore } from '../../stores/chat.store'
 import { debugLog } from '../../lib/debug'
+import { toast } from '../../lib/toast'
 import Avatar from '../ui/Avatar'
 import ContextMeter from '../ui/ContextMeter'
 import DeleteSpaceModal from '../modals/DeleteSpaceModal'
+import RenameModal from '../modals/RenameModal'
+import ResetChatModal from '../modals/ResetChatModal'
 
 const EMOJIS = [
   "🦅", "🔥", "⚡", "🎮", "🎯", "🎲",
@@ -19,25 +22,47 @@ export default function SettingsPanel() {
   const { currentSpace, members, setSpace, setSpaces, spaces, setMembers, onlineUsers } = useSpaceStore()
   const { setMessages, searchQuery, setSearchQuery } = useChatStore()
   const [showNukeModal, setShowNukeModal] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
-  const [renaming, setRenaming] = useState(false)
-  const [nameInput, setNameInput] = useState("")
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [editNameValue, setEditNameValue] = useState('')
+  const [renameConfirm, setRenameConfirm] = useState<{ from: string; to: string } | null>(null)
   const [avatarPicker, setAvatarPicker] = useState(false)
   const [avatarInput, setAvatarInput] = useState("")
   const [includeInShout, setIncludeInShout] = useState(() => {
     return localStorage.getItem('include_self_shout') === 'true'
   })
+  const [copiedId, setCopiedId] = useState(false)
+
+  // Reset copy-checkmark after 1.5s
+  useEffect(() => {
+    if (!copiedId) return
+    const t = window.setTimeout(() => setCopiedId(false), 1500)
+    return () => window.clearTimeout(t)
+  }, [copiedId])
   const isAdmin = currentSpace?.owner_id === profile?.id
 
   const onlineMembers = members.filter(m => onlineUsers.has(m.user_id))
   const offlineMembers = members.filter(m => !onlineUsers.has(m.user_id))
 
   const handleRenameSpace = async () => {
-    if (!currentSpace || !nameInput.trim()) return
-    await supabase.from('spaces').update({ name: nameInput.trim() }).eq('id', currentSpace.id)
-    setSpace({ ...currentSpace, name: nameInput.trim() })
-    setSpaces(spaces.map(s => s.id === currentSpace.id ? { ...s, name: nameInput.trim() } : s))
-    setRenaming(false)
+    if (!currentSpace || !editNameValue.trim()) {
+      setEditingName(false)
+      return
+    }
+    if (editNameValue.trim() === currentSpace.name) {
+      setEditingName(false)
+      return
+    }
+    setRenameConfirm({ from: currentSpace.name, to: editNameValue.trim() })
+  }
+
+  const confirmRename = async () => {
+    if (!currentSpace || !editNameValue.trim()) return
+    await supabase.from('spaces').update({ name: editNameValue.trim() }).eq('id', currentSpace.id)
+    setSpace({ ...currentSpace, name: editNameValue.trim() })
+    setSpaces(spaces.map(s => s.id === currentSpace.id ? { ...s, name: editNameValue.trim() } : s))
+    setEditingName(false)
+    setRenameConfirm(null)
   }
 
   const handleChangeAvatar = async (emoji: string) => {
@@ -66,7 +91,6 @@ export default function SettingsPanel() {
     await supabase.from('messages').delete().eq('space_id', currentSpace.id)
     await supabase.from('spaces').update({ context_window_used: 0 }).eq('id', currentSpace.id)
     setMessages([])
-    setConfirmReset(false)
   }
 
   const handleDeleteSpace = async (): Promise<void> => {
@@ -97,7 +121,6 @@ export default function SettingsPanel() {
     }
     debugLog({ level: 'info', source: 'settings', message: `[nuke] verify step — querying id: ${spaceId}`, details: { verifySpaceId: spaceId, currentSpaceId: currentSpace?.id } })
 
-    // Supabase DELETE returns 204 even when RLS blocks — verify the row is actually gone
     const { data: verifyRow } = await supabase.from('spaces').select('id').eq('id', spaceId).maybeSingle()
     debugLog({ level: 'info', source: 'settings', message: `[nuke] verify result`, details: { verifyRow } })
     if (verifyRow) {
@@ -111,23 +134,29 @@ export default function SettingsPanel() {
     }
 
     debugLog({ level: 'success', source: 'settings', message: `[nuke] Space "${spaceName}" nuked successfully`, details: { spaceId } })
+  }
 
+  const handleDeleteDone = async () => {
+    if (!currentSpace || !profile) {
+      setShowNukeModal(false)
+      return
+    }
     const { data: remain } = await supabase
       .from('space_members').select('space_id')
       .eq('user_id', profile.id).eq('blacklisted', false)
       .neq('space_id', currentSpace.id)
 
-    let nextSpace: typeof currentSpace = null
     if (remain && remain.length > 0) {
       const { data: next } = await supabase
         .from('spaces').select('*').eq('id', remain[0].space_id).maybeSingle()
-      nextSpace = next
+      setSpace(next)
+      setSpaces(next ? spaces.filter(s => s.id !== currentSpace.id) : [])
+    } else {
+      setSpace(null)
+      setMessages([])
+      setSpaces([])
     }
-
-    setSpace(nextSpace)
-    setMessages([])
     setShowNukeModal(false)
-    setSpaces(nextSpace ? spaces.filter(s => s.id !== currentSpace.id) : [])
   }
 
   const handleLeave = async () => {
@@ -156,31 +185,55 @@ export default function SettingsPanel() {
     <div className='w-72 bg-bg-base border-l border-border-lo flex flex-col h-full overflow-hidden'>
       <div className='p-4 border-b border-border-lo'>
         <h2 className='font-display font-bold text-text-hi'>Settings</h2>
-        <p className='text-text-lo text-xs mt-0.5'>
-          <button onClick={() => { setAvatarPicker(true); setAvatarInput(currentSpace?.avatar_emoji || "") }} className="inline-block hover:opacity-80 text-lg leading-none mr-1">{currentSpace?.avatar_emoji}</button>
-          {currentSpace?.name}
-          {isAdmin && (
-            <button onClick={() => { setRenaming(true); setNameInput(currentSpace?.name || "") }} className="ml-2 text-text-lo hover:text-accent text-xs">rename</button>
+        <p className='text-text-lo text-xs mt-0.5 flex items-center gap-1 flex-wrap'>
+          <button onClick={() => { setAvatarPicker(true); setAvatarInput(currentSpace?.avatar_emoji || "") }} className="inline-block hover:opacity-80 text-lg leading-none">{currentSpace?.avatar_emoji}</button>
+          {/* Space name — double-click to rename */}
+          {isAdmin && editingName ? (
+            <input
+              value={editNameValue}
+              onChange={e => setEditNameValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleRenameSpace()
+                if (e.key === 'Escape') setEditingName(false)
+              }}
+              onBlur={() => {
+                if (editNameValue.trim() && editNameValue.trim() !== currentSpace?.name) handleRenameSpace()
+                else setEditingName(false)
+              }}
+              autoFocus
+              className='input-field text-xs flex-1 min-w-0'
+            />
+          ) : (
+            <span
+              onDoubleClick={() => { setEditingName(true); setEditNameValue(currentSpace?.name || '') }}
+              className={isAdmin ? 'cursor-pointer hover:text-accent' : ''}
+            >{currentSpace?.name}</span>
           )}
+          <span className="text-text-lo/50 text-[10px] font-mono ml-1 flex items-center gap-0.5">
+            {currentSpace?.id}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(currentSpace?.id || '')
+                setCopiedId(true)
+                toast('Space ID copied to clipboard')
+              }}
+              title='Copy space ID'
+              className='inline-flex items-center text-text-lo hover:text-accent align-middle'
+            >
+              {copiedId ? (
+                <svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+                  <path d='M20 6 9 17l-5-5' />
+                </svg>
+              ) : (
+                <svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
+                  <rect width='8' height='4' x='8' y='2' rx='1' ry='1' />
+                  <path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2' />
+                </svg>
+              )}
+            </button>
+          </span>
         </p>
       </div>
-
-      {/* Rename inline form */}
-      {renaming && (
-        <div className='p-4 border-b border-border-lo'>
-          <div className="flex gap-2">
-            <input
-              value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleRenameSpace()}
-              className='input-field text-sm flex-1'
-              autoFocus
-            />
-            <button onClick={handleRenameSpace} className='btn-primary text-xs px-2'>Save</button>
-            <button onClick={() => setRenaming(false)} className='input-field text-xs px-2'>Cancel</button>
-          </div>
-        </div>
-      )}
 
       {/* Avatar picker */}
       {avatarPicker && (
@@ -289,14 +342,7 @@ export default function SettingsPanel() {
       {/* Admin actions */}
       {isAdmin && (
         <div className='p-4 border-t border-border-lo flex flex-col gap-2'>
-          {confirmReset ? (
-            <div className='flex gap-2'>
-              <button onClick={handleResetChat} className='btn-shout text-xs py-1.5 flex-1'>Confirm Reset</button>
-              <button onClick={() => setConfirmReset(false)} className='input-field text-xs py-1.5 flex-1'>Cancel</button>
-            </div>
-          ) : (
-            <button onClick={() => setConfirmReset(true)} className='text-text-lo text-sm hover:text-text-hi text-left'>Reset Chat</button>
-          )}
+          <button onClick={() => setShowResetModal(true)} className='text-text-lo text-sm hover:text-text-hi text-left'>Reset Chat</button>
 
           <button onClick={() => setShowNukeModal(true)} className='text-red-400 text-sm hover:underline text-left'>Nuke Space</button>
         </div>
@@ -315,7 +361,24 @@ export default function SettingsPanel() {
       <DeleteSpaceModal
         spaceName={currentSpace?.name || ""}
         onConfirm={handleDeleteSpace}
+        onDeleted={handleDeleteDone}
         onClose={() => setShowNukeModal(false)}
+      />
+    )}
+    {showResetModal && (
+      <ResetChatModal
+        spaceName={currentSpace?.name || ""}
+        onConfirm={handleResetChat}
+        onDone={() => setShowResetModal(false)}
+        onClose={() => setShowResetModal(false)}
+      />
+    )}
+    {renameConfirm && (
+      <RenameModal
+        oldName={renameConfirm.from}
+        newName={renameConfirm.to}
+        onConfirm={confirmRename}
+        onClose={() => { setRenameConfirm(null); setEditingName(false) }}
       />
     )}
     </>

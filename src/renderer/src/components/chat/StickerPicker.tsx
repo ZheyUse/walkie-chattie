@@ -56,7 +56,7 @@ export default function StickerPicker({ onClose, onInsert }: Props) {
   return (
     <div
       className="absolute z-50 bg-bg-panel border border-border-md rounded-card shadow-2xl w-80 overflow-hidden"
-      style={{ bottom: 'calc(100% + 8px)', right: 32 }}
+      style={{ bottom: 'calc(100% + 8px)', left: 0 }}
     >
       <div className="p-2 border-b border-border-lo">
         <input
@@ -113,13 +113,12 @@ export default function StickerPicker({ onClose, onInsert }: Props) {
 
 export function insertSticker(textarea: HTMLTextAreaElement | null, emoji: string) {
   if (!textarea) return
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set
   const start = textarea.selectionStart
   const end = textarea.selectionEnd
   const val = textarea.value
   const next = val.slice(0, start) + emoji + ' ' + val.slice(end)
-  const fake = new InputEvent('input', { bubbles: true, inputType: 'insertText', data: emoji })
-  Object.defineProperty(fake, 'target', { value: textarea })
-  textarea.value = next
-  textarea.dispatchEvent(fake)
+  nativeInputValueSetter?.call(textarea, next)
+  textarea.dispatchEvent(new Event('input', { bubbles: true }))
   textarea.selectionStart = textarea.selectionEnd = start + emoji.length + 1
 }

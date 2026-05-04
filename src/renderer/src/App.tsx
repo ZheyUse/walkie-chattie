@@ -7,6 +7,7 @@ import OnboardingPage from "./pages/OnboardingPage"
 import DashboardPage from "./pages/DashboardPage"
 import DebugPage from "./pages/DebugPage"
 import RoomModal from "./components/modals/RoomModal"
+import ToastContainer from "./components/ui/ToastContainer"
 import ShoutPopup from "./components/popups/ShoutPopup"
 import WhisperPopup from "./components/popups/WhisperPopup"
 import { debugLog } from "./lib/debug"
@@ -387,7 +388,17 @@ export default function App() {
     if (!currentSpace || !user) return
 
     const channelName = `space-presence:${currentSpace.id}`
-    const channel = supabase.channel(channelName, { config: { broadcast: { self: false } } })
+    const channel = supabase.channel(channelName)
+
+    const syncOnlineUsers = () => {
+      if (!useSpaceStore.getState().currentSpace) return
+      const allOnline = channel.presenceState()
+      const ids = Object.values(allOnline)
+        .flat()
+        .map((s) => (s as unknown as { user_id: string }).user_id)
+        .filter(Boolean)
+      useSpaceStore.getState().setOnlineUsers(new Set(ids))
+    }
 
     const setTyping = (userId: string) => {
       const current = useSpaceStore.getState().typingUsers
@@ -401,24 +412,13 @@ export default function App() {
       useSpaceStore.getState().setTypingUsers(next)
     }
 
-    // Listen to online/offline and typing events
     channel
-      .on("broadcast", { event: "online" }, () => {
-        if (!useSpaceStore.getState().currentSpace) return
-        const allOnline = channel.presenceState()
-        const ids = Object.values(allOnline)
-          .flat()
-          .map((s) => (s as unknown as { user_id: string }).user_id)
-          .filter(Boolean)
-        useSpaceStore.getState().setOnlineUsers(new Set(ids))
+      .on("presence", { event: "sync" }, syncOnlineUsers)
+      .on("presence", { event: "join" }, ({ key, currentPresences }) => {
+        syncOnlineUsers()
       })
-      .on("broadcast", { event: "offline" }, () => {
-        const allOnline = channel.presenceState()
-        const ids = Object.values(allOnline)
-          .flat()
-          .map((s) => (s as unknown as { user_id: string }).user_id)
-          .filter(Boolean)
-        useSpaceStore.getState().setOnlineUsers(new Set(ids))
+      .on("presence", { event: "leave" }, ({ key, currentPresences }) => {
+        syncOnlineUsers()
       })
       .on("broadcast", { event: "typing" }, (payload) => {
         const uid = (payload.payload as unknown as { user_id: string }).user_id
@@ -434,19 +434,9 @@ export default function App() {
       .subscribe(async (status) => {
         if (status !== "SUBSCRIBED") return
         await channel.track({ user_id: user.id })
-        channel.send({ type: "broadcast", event: "online", payload: { user_id: user.id } })
       })
 
-    // Sync initial presence
-    const allOnline = channel.presenceState()
-    const ids = Object.values(allOnline)
-      .flat()
-      .map((s) => (s as unknown as { user_id: string }).user_id)
-      .filter(Boolean)
-    useSpaceStore.getState().setOnlineUsers(new Set(ids))
-
     return () => {
-      channel.send({ type: "broadcast", event: "offline", payload: { user_id: user.id } })
       supabase.removeChannel(channel)
       useSpaceStore.getState().setOnlineUsers(new Set())
       useSpaceStore.getState().setTypingUsers(new Set())
@@ -535,5 +525,10 @@ export default function App() {
   if (!currentSpace) return <RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={false} />
   if (joinOrCreateModalOpen) return <RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={true} />
   if (!profile) return <OnboardingPage />
-  return <DashboardPage />
+  return (
+    <>
+      <DashboardPage />
+      <ToastContainer />
+    </>
+  )
 }

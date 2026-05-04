@@ -1,4 +1,6 @@
+import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '../../stores/auth.store'
+import { useSpaceStore } from '../../stores/space.store'
 import { useChatStore } from '../../stores/chat.store'
 import type { Message } from '../../stores/chat.store'
 import Avatar from '../ui/Avatar'
@@ -99,21 +101,38 @@ function MessageStatusIndicator({ msg, onRetry }: { msg: Message; onRetry: () =>
 
 export default function MessageItem({ msg, showAvatar = true, showNickname = true }: Props) {
   const { profile } = useAuthStore()
+  const members = useSpaceStore(s => s.members)
   const retryMessage = useChatStore(s => s.retryMessage)
-
-  if (msg.type === 'system') {
-    return (
-      <div className="flex justify-center py-1">
-        <span className="text-text-lo text-xs italic font-body">{msg.content}</span>
-      </div>
-    )
-  }
+  const [revealStatus, setRevealStatus] = useState(false)
+  const msgRowRef = useRef<HTMLDivElement>(null)
 
   const isOwn = msg.sender_id === profile?.id
   const borderColor = msg.type === 'shout' ? 'border-l-shout' : msg.type === 'whisper' ? 'border-l-purple-500' : ''
 
+  // Scroll the row into view when the sent badge is revealed
+  useEffect(() => {
+    if (revealStatus) {
+      msgRowRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [revealStatus])
+
+  if (msg.type === 'system') {
+    return (
+      <div className='flex justify-center py-1'>
+        <span className='text-text-lo text-xs italic font-body'>{msg.content}</span>
+      </div>
+    )
+  }
+
+  const seenByOthers = (msg.seenBy || [])
+    .filter(id => id !== profile?.id && id !== msg.sender_id)
+  const seenLabels = seenByOthers.map(id => {
+    const m = members.find(m => m.user_id === id)
+    return m ? m.nickname : id.slice(0, 6)
+  })
+
   return (
-    <div className={"px-4 py-1 flex gap-3 items-end " + (isOwn ? 'flex-row-reverse' : '')}>
+    <div ref={msgRowRef} className={"px-4 py-1 flex gap-3 items-end " + (isOwn ? 'flex-row-reverse' : '')}>
       {showAvatar && !isOwn && (
         <Avatar nickname={msg.sender_nickname} color="#1a9fff" size="sm" />
       )}
@@ -124,36 +143,59 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
           <span className="text-text-lo text-xs font-body">{msg.sender_nickname} · {formatTime(msg.created_at)}</span>
         )}
 
-        <div className="flex flex-col gap-0.5">
-          {msg.type === 'shout' ? (
-            <div className={'border-l-4 ' + borderColor + ' pl-3 py-1 bg-shout/10 rounded-r-card'}>
-              <div className={"text-shout font-display font-bold " + shoutFont(msg.content || '')}>{msg.content}</div>
-            </div>
-          ) : msg.type === 'whisper' ? (
-            <div className="border-l-4 border-l-purple-500 pl-3 py-1 bg-purple-500/10 rounded-r-card">
-              <div className="text-purple-300 italic text-sm font-body">{msg.content}</div>
-            </div>
-          ) : (
-            <div className={"bg-bg-surface border border-border-lo rounded-card px-3 py-2 " + (isOwn ? 'rounded-tr-none' : 'rounded-tl-none')}>
-              {msg.gif_url && (
-                <img src={msg.gif_url} alt="GIF" className="max-h-48 rounded-lg object-contain mb-1" />
-              )}
-              {msg.image_url && (
-                <img src={msg.image_url} alt="Image" className="max-h-64 rounded-lg object-contain mb-1 cursor-pointer hover:opacity-90" />
-              )}
-              {msg.content && (
-                <p className="text-text-hi text-sm font-body whitespace-pre-wrap break-words">{msg.content}</p>
-              )}
-            </div>
-          )}
+        {/* Message bubble — clickable for own sent messages to reveal badge */}
+        <button
+          onClick={() => { if (isOwn && msg.status === 'sent') setRevealStatus(v => !v) }}
+          className={
+            'text-left ' +
+            (isOwn && msg.status === 'sent' ? 'cursor-pointer' : 'cursor-default')
+          }
+        >
+          <div className="flex flex-col gap-0.5">
+            {msg.type === 'shout' ? (
+              <div className={'border-l-4 ' + borderColor + ' pl-3 py-1 bg-shout/10 rounded-r-card'}>
+                <div className={"text-shout font-display font-bold " + shoutFont(msg.content || '')}>{msg.content}</div>
+              </div>
+            ) : msg.type === 'whisper' ? (
+              <div className="border-l-4 border-l-purple-500 pl-3 py-1 bg-purple-500/10 rounded-r-card">
+                <div className="text-purple-300 italic text-sm font-body">{msg.content}</div>
+              </div>
+            ) : (
+              <div className={"bg-bg-surface border border-border-lo rounded-card px-3 py-2 " + (isOwn ? 'rounded-tr-none' : 'rounded-tl-none')}>
+                {msg.gif_url && (
+                  <img src={msg.gif_url} alt="GIF" className="max-h-48 rounded-lg object-contain mb-1" />
+                )}
+                {msg.image_url && (
+                  <img src={msg.image_url} alt="Image" className="max-h-64 rounded-lg object-contain mb-1 cursor-pointer hover:opacity-90" />
+                )}
+                {msg.content && (
+                  <p className="text-text-hi text-sm font-body whitespace-pre-wrap break-words">{msg.content}</p>
+                )}
+              </div>
+            )}
 
-          {/* Status indicator — only own messages */}
-          {isOwn && msg.status && (
-            <div className={isOwn ? 'self-end' : 'self-start'}>
-              <MessageStatusIndicator msg={msg} onRetry={() => retryMessage(msg)} />
-            </div>
-          )}
-        </div>
+            {/* Always-visible status for non-sent states (sending spinner, delivered double-check, error) */}
+            {isOwn && msg.status && msg.status !== 'sent' && (
+              <div className='self-end'>
+                <MessageStatusIndicator msg={msg} onRetry={() => retryMessage(msg)} />
+              </div>
+            )}
+
+            {/* Click to reveal single checkmark for own 'sent' messages */}
+            {isOwn && msg.status === 'sent' && revealStatus && (
+              <div className='self-end'>
+                <SentIcon />
+              </div>
+            )}
+          </div>
+        </button>
+
+        {/* "Seen by" row for own messages with viewers */}
+        {isOwn && seenLabels.length > 0 && (
+          <span className="text-text-lo/60 text-[11px] font-body italic">
+            seen by {seenLabels.join(', ')}
+          </span>
+        )}
       </div>
     </div>
   )

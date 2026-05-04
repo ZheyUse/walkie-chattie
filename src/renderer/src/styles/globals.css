@@ -44,3 +44,11 @@
     @apply bg-bg-surface border border-border-lo rounded-card p-3;
   }
 }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out both;
+}
