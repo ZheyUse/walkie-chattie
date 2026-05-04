@@ -17,54 +17,29 @@ export default function AuthPage() {
       loadingRef.current = true
       setLoading(true)
       setErrorRef.current(null)
-
       try {
         const callbackUrl = new URL(url)
-        const searchParams = callbackUrl.searchParams
         const hashParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''))
-        const code = searchParams.get('code')
+        const code = callbackUrl.searchParams.get('code')
         const accessToken = hashParams.get('access_token')
         const refreshToken = hashParams.get('refresh_token')
-
         if (code) {
           debugLog({ source: "auth", message: "Exchanging OAuth code for session" })
           const { error: err } = await supabase.auth.exchangeCodeForSession(code)
-          if (err) {
-            debugLog({ level: "error", source: "auth", message: "OAuth code exchange failed", details: err })
-            setErrorRef.current(err.message)
-          }
+          if (err) { debugLog({ level: "error", source: "auth", message: "OAuth code exchange failed", details: err }); setErrorRef.current(err.message) }
         } else if (accessToken && refreshToken) {
           debugLog({ source: "auth", message: "Setting OAuth token session" })
-          const { error: err } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          })
-          if (err) {
-            debugLog({ level: "error", source: "auth", message: "OAuth token session failed", details: err })
-            setErrorRef.current(err.message)
-          }
-        } else {
-          debugLog({ level: "error", source: "auth", message: "OAuth callback had no usable session data" })
-          setErrorRef.current('No auth session was returned')
-        }
+          const { error: err } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          if (err) { debugLog({ level: "error", source: "auth", message: "OAuth token session failed", details: err }); setErrorRef.current(err.message) }
+        } else { debugLog({ level: "error", source: "auth", message: "OAuth callback had no usable session data" }); setErrorRef.current('No auth session was returned') }
       } catch (err) {
         debugLog({ level: "error", source: "auth", message: "OAuth callback parsing failed", details: err })
         setErrorRef.current(err instanceof Error ? err.message : 'Invalid auth callback')
-      } finally {
-        loadingRef.current = false
-        setLoading(false)
-      }
+      } finally { loadingRef.current = false; setLoading(false) }
     }
-    const onClose = () => {
-      if (loadingRef.current) {
-        debugLog({ level: "warn", source: "auth", message: "OAuth flow cancelled while loading" })
-        setErrorRef.current('Auth cancelled')
-      }
-    }
-
+    const onClose = () => { if (loadingRef.current) { debugLog({ level: "warn", source: "auth", message: "OAuth flow cancelled while loading" }); setErrorRef.current('Auth cancelled') } }
     window.api.onOAuthCallback(onCallback)
     window.api.onOAuthClosed(onClose)
-
     return () => {}
   }, [])
 
@@ -77,54 +52,132 @@ export default function AuthPage() {
       provider: 'google',
       options: { redirectTo, skipBrowserRedirect: true }
     })
-    if (oauthError) {
-      debugLog({ level: "error", source: "auth", message: "Google OAuth URL request failed", details: oauthError })
-      setError(oauthError.message)
-      setLoading(false)
-      return
-    }
-    if (!data.url) {
-      debugLog({ level: "error", source: "auth", message: "Google OAuth did not return a URL" })
-      setError('No auth URL returned')
-      setLoading(false)
-      return
-    }
+    if (oauthError) { debugLog({ level: "error", source: "auth", message: "Google OAuth URL request failed", details: oauthError }); setError(oauthError.message); setLoading(false); return }
+    if (!data.url) { debugLog({ level: "error", source: "auth", message: "Google OAuth did not return a URL" }); setError('No auth URL returned'); setLoading(false); return }
     debugLog({ source: "auth", message: "Opening Google OAuth in system browser", details: { redirectTo } })
     window.api.openSystemBrowser(data.url)
   }
 
   return (
-    <div className="h-screen bg-bg-deep flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-96 h-96 rounded-full bg-accent/5 blur-3xl" />
+    <div
+      className="h-screen flex flex-col items-center justify-center relative overflow-hidden"
+      style={{ background: 'radial-gradient(ellipse at 15% 20%, rgba(139,92,246,0.12) 0%, transparent 55%), radial-gradient(ellipse at 85% 80%, rgba(26,159,255,0.08) 0%, transparent 55%), #0a0e1a' }}
+    >
+      {/* Floating orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-[15%] w-72 h-72 rounded-full" style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)', animation: 'float 8s ease-in-out infinite' }} />
+        <div className="absolute bottom-[30%] right-[10%] w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(26,159,255,0.05) 0%, transparent 70%)', animation: 'float 10s ease-in-out infinite reverse', animationDelay: '-3s' }} />
+        {/* Star dots */}
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full animate-pulse"
+            style={{
+              width: Math.random() * 2 + 1 + 'px',
+              height: Math.random() * 2 + 1 + 'px',
+              left: Math.random() * 100 + '%',
+              top: Math.random() * 100 + '%',
+              background: 'rgba(255,255,255,' + (Math.random() * 0.3 + 0.05) + ')',
+              animationDuration: (Math.random() * 3 + 2) + 's',
+              animationDelay: (Math.random() * 3) + 's',
+            }}
+          />
+        ))}
       </div>
-      <div className="relative z-10 flex flex-col items-center gap-8">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-2xl bg-bg-panel border border-border-md flex items-center justify-center text-4xl shadow-lg shadow-accent/10">
-            📻
-          </div>
-          <h1 className="font-display font-bold text-4xl text-text-hi tracking-wide">
-            WALKIE<span className="text-accent">-</span>CHATTIE
-          </h1>
-          <p className="text-text-lo text-sm font-body">
-            Chat with your crew. No servers, no subscriptions.
-          </p>
-        </div>
-        <div className="bg-bg-panel border border-border-md rounded-modal p-8 w-80 flex flex-col gap-5 shadow-2xl">
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="btn-primary flex items-center justify-center gap-3 py-3 text-base disabled:opacity-50"
+
+      <div className="relative z-10 flex flex-col items-center gap-10">
+        {/* Brand mark */}
+        <div className="flex flex-col items-center gap-5">
+          {/* Icon: space communication satellite */}
+          <div
+            className="relative flex items-center justify-center w-20 h-20 rounded-2xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(139,92,246,0.2) 0%, rgba(26,159,255,0.1) 100%)',
+              border: '1px solid rgba(139,92,246,0.25)',
+              boxShadow: '0 0 40px rgba(139,92,246,0.2), 0 8px 32px rgba(0,0,0,0.5)',
+            }}
           >
-            {loading ? <Spinner /> : <><GoogleIcon />Continue with Google</>}
-          </button>
-          {error && (
-            <p className="text-red-400 text-xs text-center bg-red-400/10 border border-red-400/20 rounded-input px-3 py-2">
-              {error}
+            {/* Inner satellite icon */}
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="rgba(139,92,246,0.6)" stroke="rgba(139,92,246,0.4)" strokeWidth="1" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" stroke="rgba(139,92,246,0.3)" strokeWidth="1" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" stroke="rgba(139,92,246,0.3)" strokeWidth="1" transform="rotate(60 12 12)" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" stroke="rgba(139,92,246,0.3)" strokeWidth="1" transform="rotate(120 12 12)" />
+            </svg>
+          </div>
+
+          {/* Brand name */}
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-baseline gap-1">
+              <span
+                className="font-display font-bold text-4xl tracking-widest"
+                style={{ background: 'linear-gradient(90deg, #e8eaed 0%, rgba(167,139,250,0.85) 75%, #1a9fff 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '0.15em' }}
+              >
+                WALKIE
+              </span>
+              <span className="text-text-lo font-bold text-3xl">—</span>
+              <span
+                className="font-display font-bold text-4xl tracking-widest"
+                style={{ background: 'linear-gradient(90deg, #1a9fff 0%, rgba(167,139,250,0.85) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '0.15em' }}
+              >
+                CHATTIE
+              </span>
+            </div>
+            <p className="text-sm font-body tracking-wide" style={{ color: 'rgba(160,170,184,0.5)' }}>
+              Your crew. Your frequencies.
             </p>
-          )}
+          </div>
         </div>
-        <p className="text-text-lo text-xs">By continuing, you agree to our Terms of Service</p>
+
+        {/* Login card */}
+        <div
+          className="bg-white/[0.03] backdrop-blur-xl rounded-2xl overflow-hidden w-80"
+          style={{
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 8px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+          }}
+        >
+          <div className="p-8 flex flex-col gap-5">
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="relative flex items-center justify-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold font-display tracking-wide transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(232,234,237,0.9)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+              }}
+            >
+              <GoogleIcon />
+              Continue with Google
+            </button>
+
+            {error && (
+              <div
+                className="text-xs text-center px-3 py-2 rounded-lg"
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  border: '1px solid rgba(239,68,68,0.2)',
+                  color: 'rgba(239,68,68,0.7)',
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {/* Decorative divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.2), transparent)' }} />
+              <span className="text-[10px] font-mono" style={{ color: 'rgba(90,100,120,0.4)' }}>secured</span>
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.2), transparent)' }} />
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[11px] font-body" style={{ color: 'rgba(90,100,120,0.35)' }}>
+          By continuing, you agree to our terms of service
+        </p>
       </div>
     </div>
   )

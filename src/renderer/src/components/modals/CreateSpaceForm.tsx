@@ -4,12 +4,10 @@ import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore } from "../../stores/space.store"
 import { generateId } from "../../lib/id-gen"
 
-const EMOJIS = ["rocket","fire","zap","gamepad","dart","d6","eagle","dragon","water","guitar","mountain","moon"]
-const EMOJIS_DISPLAY = [
-  String.fromCodePoint(0x1F680), String.fromCodePoint(0x1F525), String.fromCodePoint(0x26A1),
-  String.fromCodePoint(0x1F3AE), String.fromCodePoint(0x1F3AF), String.fromCodePoint(0x1F3B2),
-  String.fromCodePoint(0x1F985), String.fromCodePoint(0x1F409), String.fromCodePoint(0x1F30A),
-  String.fromCodePoint(0x1F3B8), String.fromCodePoint(0x1F3D4), String.fromCodePoint(0x1F319),
+const AVATAR_EMOJIS = [
+  "🚀", "🛸", "🌌", "⭐", "🌙", "🪐",
+  "🔮", "💎", "⚡", "🔥", "🎯", "🎮",
+  "🛡️", "🔭", "🌊", "⚔️",
 ]
 
 export default function CreateSpaceForm() {
@@ -32,84 +30,60 @@ export default function CreateSpaceForm() {
     setLoading(true)
     setError("")
 
-    const emoji = EMOJIS_DISPLAY[emojiIdx]
+    const emoji = AVATAR_EMOJIS[emojiIdx]
+    const space = { id: spaceId, name: name.trim(), avatar_emoji: emoji, owner_id: user.id, context_window_limit: 12000, context_window_used: 0 }
+    const { error: spaceErr } = await supabase.from("spaces").insert(space)
+    if (spaceErr) { setError(spaceErr.message || "Failed to create Space."); setLoading(false); return }
 
-    const space = {
-      id: spaceId,
-      name: name.trim(),
-      avatar_emoji: emoji,
-      owner_id: user.id,
-      context_window_limit: 12000,
-      context_window_used: 0,
-    }
-
-    const { error: spaceErr } = await supabase
-      .from("spaces").insert(space)
-
-    if (spaceErr) {
-      setError(spaceErr.message || "Failed to create Space.")
-      setLoading(false)
-      return
-    }
-
-    const { error: memberErr } = await supabase
-      .from("space_members").insert({ space_id: spaceId, user_id: user.id, role: "admin" })
-
-    if (memberErr) {
-      setError(memberErr.message)
-      setLoading(false)
-      return
-    }
+    const { error: memberErr } = await supabase.from("space_members").insert({ space_id: spaceId, user_id: user.id, role: "admin" })
+    if (memberErr) { setError(memberErr.message); setLoading(false); return }
 
     setSpace(space)
     setJoinOrCreateModalOpen(false)
 
-    // Refresh all spaces to include the newly created one
     if (user) {
-      const { data: memberships } = await supabase
-        .from("space_members").select("space_id").eq("user_id", user.id).eq("blacklisted", false)
+      const { data: memberships } = await supabase.from("space_members").select("space_id").eq("user_id", user.id).eq("blacklisted", false)
       if (memberships && memberships.length > 0) {
         const spaceIds = memberships.map((m: { space_id: string }) => m.space_id)
         const { data: allSpaces } = await supabase.from("spaces").select("*").in("id", spaceIds)
         setSpaces(allSpaces ?? [])
       }
     }
-
-    setMembers([{
-      user_id: user.id,
-      nickname: profile.nickname,
-      avatar_color: profile.avatar_color,
-      role: "admin",
-      joined_at: new Date().toISOString(),
-    }])
-
+    setMembers([{ user_id: user.id, nickname: profile.nickname, avatar_color: profile.avatar_color, role: "admin", joined_at: new Date().toISOString() }])
     setLoading(false)
   }
 
   return (
     <form onSubmit={handleCreate} className="flex flex-col gap-4">
-      {error && <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-input px-3 py-2">{error}</p>}
+      {error && (
+        <p className="text-xs px-3 py-2 rounded-lg" style={{ color: 'rgba(239,68,68,0.7)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>{error}</p>
+      )}
 
       <div>
-        <label className="block text-text-md text-xs mb-1 font-body">Space Name</label>
+        <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Space Name</label>
         <input value={name} onChange={e => setName(e.target.value.slice(0, 30))}
-          maxLength={30} placeholder="e.g. Gaming Crew"
+          maxLength={30} placeholder="e.g. Mission Control"
           className="input-field" />
-        <p className="text-text-lo text-xs mt-1">{name.length}/30</p>
+        <p className="text-[10px] mt-1 font-mono" style={{ color: 'rgba(90,100,120,0.4)' }}>{name.length}/30</p>
       </div>
 
       <div>
-        <label className="block text-text-md text-xs mb-1.5 font-body">Space ID</label>
-        <div className="input-field font-mono text-text-md">{spaceId}</div>
+        <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Space ID</label>
+        <div className="px-3 py-2 rounded-xl font-display font-mono text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(139,92,246,0.5)' }}>
+          {spaceId}
+        </div>
       </div>
 
       <div>
-        <label className="block text-text-md text-xs mb-2 font-body">Avatar</label>
-        <div className="grid grid-cols-6 gap-2">
-          {EMOJIS_DISPLAY.map((e, i) => (
+        <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Avatar</label>
+        <div className="grid grid-cols-8 gap-1">
+          {AVATAR_EMOJIS.map((e, i) => (
             <button key={i} type="button" onClick={() => setEmojiIdx(i)}
-              className={"text-xl w-9 h-9 rounded-card flex items-center justify-center transition-all " +
-                       (emojiIdx === i ? "bg-accent/20 ring-2 ring-accent" : "bg-bg-surface hover:bg-bg-hover")}>
+              className="aspect-square rounded-lg flex items-center justify-center text-base transition-all duration-150 hover:scale-110"
+              style={{
+                background: emojiIdx === i ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)',
+                border: emojiIdx === i ? '1px solid rgba(139,92,246,0.5)' : '1px solid transparent',
+              }}>
               {e}
             </button>
           ))}
@@ -117,7 +91,16 @@ export default function CreateSpaceForm() {
       </div>
 
       <button type="submit" disabled={!name.trim() || loading}
-        className="btn-primary disabled:opacity-40">
+        className="w-full relative flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold font-display tracking-wide transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40"
+        style={{
+          background: name.trim() && !loading ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)' : 'rgba(255,255,255,0.08)',
+          color: '#fff',
+          boxShadow: name.trim() && !loading ? '0 4px 16px rgba(139,92,246,0.35)' : 'none',
+          cursor: !name.trim() || loading ? 'default' : 'pointer',
+        }}>
+        {loading ? (
+          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
+        ) : null}
         {loading ? "Creating..." : "Create Space"}
       </button>
     </form>

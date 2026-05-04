@@ -25,6 +25,7 @@ export async function searchGifs(query: string, limit = 20): Promise<TenorGif[]>
     `${BASE}/search?q=${encodeURIComponent(query)}&key=${TENOR_KEY}&limit=${limit}&media_filter=gif`
   )
   const data = await res.json()
+  if (!data.results) return []
   return (data.results as TenorResult[]).map(formatGif)
 }
 
@@ -37,6 +38,7 @@ export async function getTrendingGifs(limit = 20): Promise<TenorGif[]> {
     `${BASE}/featured?key=${TENOR_KEY}&limit=${limit}&media_filter=gif`
   )
   const data = await res.json()
+  if (!data.results) return []
   const gifs = (data.results as TenorResult[]).map(formatGif)
   trendingCache = { gifs, ts: now }
   return gifs

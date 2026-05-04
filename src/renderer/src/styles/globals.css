@@ -6,42 +6,75 @@
   * { box-sizing: border-box; }
   html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  /* Custom scrollbar — thin, subtle, cosmic */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #2a3444; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3a4a5a; }
+  ::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.4); }
 
-  /* Text selection */
-  ::selection { background: rgba(26, 159, 255, 0.3); color: #e8eaed; }
+  /* Text selection — purple tint */
+  ::selection { background: rgba(139, 92, 246, 0.3); color: #e8eaed; }
 
   /* Remove focus outline — use ring instead */
   :focus { outline: none; }
-  :focus-visible { outline: 2px solid rgba(26, 159, 255, 0.5); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid rgba(139, 92, 246, 0.5); outline-offset: 2px; }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-accent hover:bg-accent/90 text-bg-deep font-display font-semibold
-           px-4 py-2 rounded-input transition-all duration-150 cursor-pointer
-           focus-visible:ring-2 ring-accent/40;
+    @apply bg-accent-blue hover:bg-accent-blue/90 text-bg-deep font-display font-semibold
+           px-4 py-2 rounded-input transition-all duration-200 cursor-pointer
+           focus-visible:ring-2 ring-accent-blue/40 active:scale-[0.98] disabled:opacity-40;
   }
   .btn-shout {
     @apply bg-shout hover:bg-shout/90 text-white font-display font-semibold
-           px-4 py-2 rounded-input transition-all duration-150 cursor-pointer
-           focus-visible:ring-2 ring-shout/40;
+           px-4 py-2 rounded-input transition-all duration-200 cursor-pointer
+           focus-visible:ring-2 ring-shout/40 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply bg-transparent text-text-lo hover:text-text-hi hover:bg-bg-hover
+           px-3 py-2 rounded-input transition-all duration-150 cursor-pointer;
   }
   .input-field {
-    @apply bg-bg-surface border border-border-md text-text-hi placeholder-text-lo
+    @apply bg-bg-surface/80 border border-border-md text-text-hi placeholder-text-lo
            px-3 py-2 rounded-input text-sm transition-all duration-150
-           focus:border-accent focus:ring-1 focus:ring-accent/40
-           w-full placeholder:opacity-60;
+           focus:border-accent-purple focus:ring-1 focus:ring-accent-purple/30 focus:bg-bg-surface
+           w-full placeholder:opacity-50;
   }
   .panel {
     @apply bg-bg-panel border-r border-border-lo;
   }
   .card {
-    @apply bg-bg-surface border border-border-lo rounded-card p-3;
+    @apply bg-bg-surface/60 border border-border-md backdrop-blur-sm rounded-card p-3;
+  }
+
+  /* Glass morphism surface */
+  .glass {
+    @apply bg-white/[0.04] backdrop-blur-md border border-white/[0.08];
+  }
+
+  /* Tooltip — positioned below parent by group-hover */
+  .tooltip-box {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .group:hover .tooltip-box {
+    opacity: 1 !important;
+  }
+
+  /* Orb — gradient background for space icons */
+  .orb {
+    @apply relative overflow-hidden;
+  }
+  .orb::before {
+    content: '';
+    @apply absolute inset-0 opacity-80;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), transparent 70%);
+  }
+
+  /* Divider with subtle glow */
+  .divider {
+    background: linear-gradient(to right, transparent, rgba(139,92,246,0.25), transparent);
   }
 }
 
@@ -49,6 +82,22 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes orb-pulse {
+  0%, 100% { box-shadow: 0 0 8px 0 rgba(139, 92, 246, 0.3); }
+  50%       { box-shadow: 0 0 20px 4px rgba(139, 92, 246, 0.5); }
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
+
 .animate-fade-in {
   animation: fade-in 0.2s ease-out both;
+}
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.2s ease-out both;
 }

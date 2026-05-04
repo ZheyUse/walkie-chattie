@@ -40,8 +40,7 @@ export default function GifPicker({ onClose, position = 'top' }: Props) {
   }, [onClose])
 
   return (
-    <div className='absolute bottom-calc(100% + 8px) z-50 bg-bg-panel border border-border-md rounded-card shadow-2xl w-80 overflow-hidden'
-         style={{ bottom: 'calc(100% + 8px)', left: '0' }}>
+    <div className='bg-bg-panel border border-border-md rounded-card shadow-2xl w-80 overflow-hidden' style={{ background: 'rgba(15,18,28,0.97)', border: '1px solid rgba(59,67,96,0.4)' }}>
       <div className='p-2 border-b border-border-lo'>
         <input
           value={q}

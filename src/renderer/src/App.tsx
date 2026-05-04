@@ -54,6 +54,7 @@ async function loadSpaceMembers(spaceId: string, setMembers: (m: Member[]) => vo
       .from("space_members")
       .select("user_id, role, joined_at")
       .eq("space_id", spaceId),
+      
     "Space members load"
   )
 

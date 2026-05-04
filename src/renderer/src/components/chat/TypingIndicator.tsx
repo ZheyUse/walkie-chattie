@@ -4,10 +4,12 @@ import { useAuthStore } from "../../stores/auth.store"
 function TypingDot({ delay }: { delay: number }) {
   return (
     <span
-      className="w-1.5 h-1.5 rounded-full bg-text-lo inline-block"
+      className="w-1.5 h-1.5 rounded-full inline-block"
       style={{
+        background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
         animation: `typingBounce 1.2s ease-in-out infinite`,
         animationDelay: `${delay}ms`,
+        boxShadow: '0 0 4px rgba(139,92,246,0.4)',
       }}
     />
   )
@@ -18,7 +20,6 @@ export default function TypingIndicator() {
   const members = useSpaceStore(s => s.members)
   const user = useAuthStore(s => s.user)
 
-  // Filter out self and turn IDs into nicknames
   const names = members
     .filter(m => m.user_id !== user?.id && typingUsers.has(m.user_id))
     .map(m => m.nickname)
@@ -26,13 +27,9 @@ export default function TypingIndicator() {
   if (names.length === 0) return null
 
   let label: string
-  if (names.length === 1) {
-    label = `${names[0]} is typing...`
-  } else if (names.length === 2) {
-    label = `${names[0]} and ${names[1]} are typing...`
-  } else {
-    label = `${names.length}+ are typing...`
-  }
+  if (names.length === 1) label = `${names[0]} is typing`
+  else if (names.length === 2) label = `${names[0]} and ${names[1]} are typing`
+  else label = `${names.length} people are typing`
 
   return (
     <>
@@ -48,7 +45,7 @@ export default function TypingIndicator() {
           <TypingDot delay={160} />
           <TypingDot delay={320} />
         </div>
-        <span className="text-text-lo text-xs italic">{label}</span>
+        <span className="text-xs italic" style={{ color: 'rgba(139,92,246,0.5)' }}>{label}</span>
       </div>
     </>
   )

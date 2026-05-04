@@ -43,12 +43,15 @@ export function debugLog({ level = "info", source = "renderer", message, details
 }
 
 function elementLabel(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return "Unknown element"
+  if (!(target instanceof Element)) return "Unknown element"
 
-  const element = target.closest("button, a, input, textarea, select, [role='button']") as HTMLElement | null
-  if (!element) return target.tagName.toLowerCase()
+  const element = target.closest("button, a, input, textarea, select, [role='button'], .nav-btn") as HTMLElement | null
+  if (!element) {
+    const tag = target instanceof Element ? target.tagName.toLowerCase() : "unknown"
+    return tag
+  }
 
-  const explicitLabel = element.getAttribute("aria-label") || element.getAttribute("title")
+  const explicitLabel = element.getAttribute("aria-label") || element.getAttribute("aria-labelledby") || element.getAttribute("title")
   const text = element.innerText?.replace(/\s+/g, " ").trim()
   const placeholder = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
     ? element.placeholder
@@ -85,6 +88,7 @@ export function installDebugInstrumentation() {
   })
 
   document.addEventListener("click", (event) => {
+    if (window.location.hash === "#/debug") return
     debugLog({
       source: "ui",
       message: "Clicked UI control",

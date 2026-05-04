@@ -1,49 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-// Emoji-combo "stickers" — simple and fun replacements for real sticker packs
 const STICKER_CATEGORIES: Record<string, { emoji: string; label: string }[]> = {
+  'Cosmic': [
+    { emoji: '🚀', label: 'rocket' }, { emoji: '🛸', label: 'ufo' }, { emoji: '🪐', label: 'planet' },
+    { emoji: '⭐', label: 'star' }, { emoji: '🌌', label: 'galaxy' }, { emoji: '🌙', label: 'moon' },
+    { emoji: '💫', label: 'sparkle' }, { emoji: '✨', label: 'glitter' }, { emoji: '🔭', label: 'telescope' },
+    { emoji: '🛰️', label: 'satellite' }, { emoji: '☄️', label: 'comet' }, { emoji: '🌠', label: 'meteor' },
+    { emoji: '👽', label: 'alien' }, { emoji: '👾', label: 'retro alien' }, { emoji: '🤖', label: 'robot' },
+    { emoji: '🔮', label: 'crystal' }, { emoji: '💎', label: 'gem' }, { emoji: '⚡', label: 'energy' },
+  ],
   'Reactions': [
     { emoji: '🔥', label: 'fire' }, { emoji: '💯', label: '100' }, { emoji: '😂', label: 'laugh' },
     { emoji: '❤️', label: 'heart' }, { emoji: '🎉', label: 'party' }, { emoji: '💀', label: 'dead' },
     { emoji: '👀', label: 'eyes' }, { emoji: '🙌', label: 'hands' }, { emoji: '🤔', label: 'think' },
-    { emoji: '😤', label: 'angry' }, { emoji: '🥺', label: 'plead' }, { emoji: '😎', label: 'cool' },
-    { emoji: '😭', label: 'cry' }, { emoji: '😳', label: 'blush' }, { emoji: '🤫', label: 'shh' },
-    { emoji: '💅', label: 'no care' }, { emoji: '😱', label: 'shock' }, { emoji: '🥳', label: 'celebrate' },
-  ],
-  'Animals': [
-    { emoji: '🐶', label: 'dog' }, { emoji: '🐱', label: 'cat' }, { emoji: '🐭', label: 'mouse' },
-    { emoji: '🦊', label: 'fox' }, { emoji: '🐻', label: 'bear' }, { emoji: '🐼', label: 'panda' },
-    { emoji: '🐨', label: 'koala' }, { emoji: '🦁', label: 'lion' }, { emoji: '🐯', label: 'tiger' },
-    { emoji: '🐸', label: 'frog' }, { emoji: '🐵', label: 'monkey' }, { emoji: '🦄', label: 'unicorn' },
-    { emoji: '🐰', label: 'rabbit' }, { emoji: '🐷', label: 'pig' }, { emoji: '🐸', label: 'frog' },
-    { emoji: '🦋', label: 'butterfly' }, { emoji: '🐢', label: 'turtle' }, { emoji: '🦎', label: 'lizard' },
-  ],
-  'Sports': [
-    { emoji: '⚽', label: 'soccer' }, { emoji: '🏀', label: 'basketball' }, { emoji: '🏈', label: 'football' },
-    { emoji: '🎾', label: 'tennis' }, { emoji: '⚾', label: 'baseball' }, { emoji: '🏐', label: 'volleyball' },
-    { emoji: '🏏', label: 'cricket' }, { emoji: '🎱', label: 'pool' }, { emoji: '🏓', label: 'ping pong' },
-    { emoji: '🥊', label: 'boxing' }, { emoji: '⛳', label: 'golf' }, { emoji: '🏊', label: 'swimming' },
-    { emoji: '🚴', label: 'cycling' }, { emoji: '🏋️', label: 'weights' }, { emoji: '🤸', label: 'gymnastics' },
-    { emoji: '⛷️', label: 'skiing' }, { emoji: '🏌️', label: 'golf swing' }, { emoji: '🎯', label: 'bullseye' },
+    { emoji: '😤', label: 'angry' }, { emoji: '😎', label: 'cool' }, { emoji: '😭', label: 'cry' },
+    { emoji: '🥳', label: 'celebrate' }, { emoji: '😱', label: 'shock' }, { emoji: '🫶', label: 'respect' },
+    { emoji: '🤝', label: 'deal' }, { emoji: '👏', label: 'clap' }, { emoji: '😌', label: 'relief' },
   ],
   'Objects': [
-    { emoji: '🎁', label: 'gift' }, { emoji: '🎈', label: 'balloon' }, { emoji: '🎀', label: 'ribbon' },
-    { emoji: '🏆', label: 'trophy' }, { emoji: '🥇', label: 'gold medal' }, { emoji: '👑', label: 'crown' },
     { emoji: '💎', label: 'diamond' }, { emoji: '🔮', label: 'crystal ball' }, { emoji: '🎯', label: 'target' },
-    { emoji: '🎮', label: 'gamepad' }, { emoji: '🕹️', label: 'joystick' }, { emoji: '🎲', label: 'dice' },
-    { emoji: '🎸', label: 'guitar' }, { emoji: '🎤', label: 'mic' }, { emoji: '🎧', label: 'headphones' },
-    { emoji: '📱', label: 'phone' }, { emoji: '💻', label: 'laptop' }, { emoji: '⌚', label: 'watch' },
+    { emoji: '🎮', label: 'gamepad' }, { emoji: '🎲', label: 'dice' }, { emoji: '🎸', label: 'guitar' },
+    { emoji: '🎤', label: 'mic' }, { emoji: '🎧', label: 'headphones' }, { emoji: '📱', label: 'phone' },
+    { emoji: '💻', label: 'laptop' }, { emoji: '⌚', label: 'watch' }, { emoji: '🔑', label: 'key' },
+    { emoji: '🛡️', label: 'shield' }, { emoji: '⚔️', label: 'swords' }, { emoji: '🏆', label: 'trophy' },
+    { emoji: '👑', label: 'crown' }, { emoji: '📡', label: 'antenna' }, { emoji: '💰', label: 'money' },
   ],
 }
 
-const ALL_STICKERS = Object.values(STICKER_CATEGORIES).flat()
+const ALL_STICKERS = [...new Set(Object.values(STICKER_CATEGORIES).flat())]
 
-interface Props {
-  onClose: () => void
-  onInsert: (emoji: string) => void
-}
-
-export default function StickerPicker({ onClose, onInsert }: Props) {
+export default function StickerPicker({ onClose, onInsert }: { onClose: () => void; onInsert: (emoji: string) => void }) {
   const [q, setQ] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -53,58 +39,96 @@ export default function StickerPicker({ onClose, onInsert }: Props) {
     if (e.key === 'Escape') onClose()
   }, [onClose])
 
+  const [activeCategory, setActiveCategory] = useState('Cosmic')
+
   return (
     <div
-      className="absolute z-50 bg-bg-panel border border-border-md rounded-card shadow-2xl w-80 overflow-hidden"
-      style={{ bottom: 'calc(100% + 8px)', left: 0 }}
+      className="rounded-xl overflow-hidden shadow-2xl"
+      style={{
+        width: '300px',
+        background: 'linear-gradient(135deg, rgba(19,25,41,0.98) 0%, rgba(13,17,27,0.98) 100%)',
+        border: '1px solid rgba(139,92,246,0.2)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(139,92,246,0.05)',
+      }}
     >
-      <div className="p-2 border-b border-border-lo">
-        <input
-          ref={inputRef}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Search stickers..."
-          className="input-field text-sm"
-        />
+      {/* Search */}
+      <div className="p-2" style={{ borderBottom: '1px solid rgba(139,92,246,0.08)' }}>
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(90,100,120,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Search stickers..."
+            className="input-field text-sm pl-8"
+            style={{ paddingLeft: '2rem' }}
+          />
+        </div>
       </div>
-      <div className="max-h-64 overflow-y-auto p-2">
+
+      {/* Category tabs */}
+      {!q.trim() && (
+        <div className="flex gap-1 px-2 pt-2 pb-0">
+          {Object.keys(STICKER_CATEGORIES).map(cat => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-lg transition-all duration-150"
+              style={{
+                background: activeCategory === cat ? 'rgba(139,92,246,0.2)' : 'transparent',
+                color: activeCategory === cat ? 'rgba(167,139,250,0.9)' : 'rgba(90,100,120,0.5)',
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Grid */}
+      <div className="max-h-56 overflow-y-auto p-2">
         {q.trim() ? (
-          <div className="grid grid-cols-4 gap-1">
-            {ALL_STICKERS.filter(s =>
-              s.label.toLowerCase().includes(q.toLowerCase())
-            ).map((s) => (
+          <div className="grid grid-cols-6 gap-0.5">
+            {ALL_STICKERS.filter(s => s.label.toLowerCase().includes(q.toLowerCase())).map((s) => (
               <button
-                key={s.emoji + s.label}
+                key={s.emoji}
                 onClick={() => { onInsert(s.emoji); onClose() }}
-                className="aspect-square flex flex-col items-center justify-center rounded-lg hover:bg-bg-hover transition-colors text-2xl"
+                className="aspect-square flex flex-col items-center justify-center rounded-lg transition-all hover:scale-110"
+                style={{ background: 'rgba(255,255,255,0.04)' }}
                 title={s.label}
               >
-                {s.emoji}
+                <span className="text-lg leading-none">{s.emoji}</span>
               </button>
             ))}
             {ALL_STICKERS.filter(s => s.label.toLowerCase().includes(q.toLowerCase())).length === 0 && (
-              <div className="col-span-4 text-center text-text-lo text-xs py-4">No stickers found</div>
+              <div className="col-span-6 text-center text-xs py-4" style={{ color: 'rgba(90,100,120,0.4)' }}>
+                No stickers found
+              </div>
             )}
           </div>
         ) : (
-          Object.entries(STICKER_CATEGORIES).map(([cat, stickers]) => (
-            <div key={cat} className="mb-3">
-              <p className="text-text-lo text-xs font-body uppercase tracking-wider mb-1 px-1">{cat}</p>
-              <div className="grid grid-cols-6 gap-0.5">
-                {stickers.map((s) => (
-                  <button
-                    key={s.emoji + s.label}
-                    onClick={() => { onInsert(s.emoji); onClose() }}
-                    className="aspect-square flex items-center justify-center rounded hover:bg-bg-hover transition-colors text-xl"
-                    title={s.label}
-                  >
-                    {s.emoji}
-                  </button>
-                ))}
-              </div>
+          <>
+            {/* Category header */}
+            <div className="text-[10px] font-mono uppercase tracking-wider mb-1.5 px-1" style={{ color: 'rgba(139,92,246,0.4)' }}>
+              {activeCategory}
             </div>
-          ))
+            <div className="grid grid-cols-6 gap-0.5">
+              {[...new Map((STICKER_CATEGORIES[activeCategory] || []).map(s => [s.emoji, s])).values()].map((s) => (
+                <button
+                  key={s.emoji}
+                  onClick={() => { onInsert(s.emoji); onClose() }}
+                  className="aspect-square flex flex-col items-center justify-center rounded-lg transition-all duration-150 hover:scale-110"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid transparent' }}
+                  title={s.label}
+                >
+                  <span className="text-lg leading-none">{s.emoji}</span>
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -282,7 +282,17 @@ export default function MessageList() {
 
         {messages.length === 0 && !loadingOlder && (
           <div className='flex-1 flex items-center justify-center'>
-            <p className='text-text-lo text-sm font-body'>No messages yet. Say hi!</p>
+            <div className='flex flex-col items-center gap-3'>
+              <div
+                className='w-12 h-12 rounded-2xl flex items-center justify-center'
+                style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139,92,246,0.15)' }}
+              >
+                <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='rgba(139, 92, 246, 0.4)' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'>
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <p className='text-text-lo text-sm'>No messages yet. Start the conversation.</p>
+            </div>
           </div>
         )}
 
@@ -299,12 +309,17 @@ export default function MessageList() {
         <button
           onClick={scrollToBottom}
           aria-label='Scroll to latest message'
-          className='absolute bottom-4 right-4 z-40 flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs font-body rounded-full shadow-lg hover:bg-accent/90 transition-all'
+          className="absolute bottom-4 right-4 z-40 flex items-center gap-1.5 px-3 py-1.5 text-xs font-display font-semibold rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, rgba(139,92,246,0.9) 0%, rgba(109,40,217,0.9) 100%)',
+            color: '#fff',
+            boxShadow: '0 4px 16px rgba(139, 92, 246, 0.4)',
+          }}
         >
-          <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
+          <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round'>
             <path d='M12 5v14M5 12l7 7 7-7' />
           </svg>
-          Jump to bottom
+          New messages
         </button>
       )}
     </div>
