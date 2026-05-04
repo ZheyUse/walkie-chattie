@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, screen } from "electron"
+import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from "electron"
 import { join, resolve } from "path"
 
 // isDev: detect if running in dev mode
@@ -237,14 +237,12 @@ app.whenReady().then(() => {
     }
   })
 
-  // IPC: shout popup — 80% of screen with transparent background
+  // IPC: shout popup
   ipcMain.on("show-shout", (_, data) => {
     addDebugLog("info", "main-window", "Opening shout popup", data)
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize
     const win = new BrowserWindow({
-      width: Math.round(width * 0.8),
-      height: Math.round(height * 0.8),
-      transparent: true,
+      fullscreen: true,
+      backgroundColor: '#060810',
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
@@ -254,20 +252,17 @@ app.whenReady().then(() => {
       },
     })
     attachWindowDebugging(win, "shout-popup")
-    win.center()
     const timeout = setTimeout(() => { if (!win.isDestroyed()) win.close() }, 12000)
     win.loadURL(popupUrl({ ...data, popupType: "shout" }))
     win.on("closed", () => clearTimeout(timeout))
   })
 
-  // IPC: whisper/tap popup — 80% of screen with transparent background
+  // IPC: whisper/tap popup
   ipcMain.on("show-whisper", (_, data) => {
     addDebugLog("info", "main-window", "Opening tap popup", data)
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize
     const win = new BrowserWindow({
-      width: Math.round(width * 0.8),
-      height: Math.round(height * 0.8),
-      transparent: true,
+      fullscreen: true,
+      backgroundColor: '#060810',
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,

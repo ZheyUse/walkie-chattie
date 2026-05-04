@@ -6,7 +6,7 @@ import { useChatStore } from "../../stores/chat.store"
 import ImagePreview from "./ImagePreview"
 import GifPicker from "./GifPicker"
 import EmojiPicker, { insertEmoji } from "./EmojiPicker"
-import StickerPicker, { insertSticker } from "./StickerPicker"
+import StickerPicker from "./StickerPicker"
 import WhisperSuggest from "./WhisperSuggest"
 import CommandSuggest from "./CommandSuggest"
 import { debugLog } from "../../lib/debug"
@@ -410,7 +410,7 @@ export default function ChatInput() {
           </Tooltip>
           {showStickers && (
             <div className="sticker-popover" style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: 8, zIndex: 50 }}>
-              <StickerPicker onClose={() => setShowStickers(false)} onInsert={(emoji) => { insertSticker(textareaRef.current, emoji); textareaRef.current?.focus() }} />
+              <StickerPicker onClose={() => setShowStickers(false)} />
             </div>
           )}
         </div>

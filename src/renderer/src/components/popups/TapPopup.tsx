@@ -30,18 +30,16 @@ export default function TapPopup() {
 
   return (
     <div
-      className="h-screen w-screen flex items-center justify-center"
-      style={{ background: 'transparent' }}
+      className="h-screen w-screen"
+      style={{ background: '#0a0c14' }}
       onClick={() => window.api.closePopup()}
     >
       <div
         className="flex flex-col overflow-hidden"
         style={{
-          width: '80vw',
-          height: '80vh',
-          background: '#0c0a18',
+          width: '100vw',
+          height: '100vh',
           border: '2px solid rgba(139,92,246,0.35)',
-          borderRadius: '16px',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -55,8 +53,10 @@ export default function TapPopup() {
             style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22c1.5 0 2-1 2-2.5S13.5 15 12 15s-2 2.5-2 2.5S10.5 22 12 22z"/>
-              <path d="M12 15C9 15 7 12 7 9c0-1.5.5-3 2-4 .5-.5 1-.5 2-.5 1.5 0 3 1 3 3 0-2 1.5-3 3-3s3 .5 3 2c0 2-3 4-3 6"/>
+              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v0"/>
+              <path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/>
+              <path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/>
+              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
             </svg>
           </div>
           <span className="font-display font-bold text-base uppercase tracking-widest" style={{ color: 'rgba(167,139,250,0.8)' }}>

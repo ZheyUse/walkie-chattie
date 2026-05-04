@@ -39,23 +39,19 @@ export default function ShoutPopup() {
   }, [])
 
   return (
-    // Outer: fills the entire transparent Electron window, centers the modal
     <div
-      className="h-screen w-screen flex items-center justify-center"
-      style={{ background: 'transparent' }}
+      className="h-screen w-screen"
+      style={{ background: '#0a0c14' }}
       onClick={() => window.api.closePopup()}
     >
-      {/* Modal: takes 80% of the window dimensions */}
       <div
         className="flex flex-col overflow-hidden"
         style={{
-          width: '80vw',
-          height: '80vh',
-          background: '#0a0c14',
+          width: '100vw',
+          height: '100vh',
           border: '2px solid rgba(232,101,42,0.35)',
-          borderRadius: '16px',
         }}
-        onClick={e => e.stopPropagation()} // prevent close when clicking inside modal
+        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div

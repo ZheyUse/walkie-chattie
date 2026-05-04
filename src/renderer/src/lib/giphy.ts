@@ -28,6 +28,24 @@ export async function getTrendingGifs(limit = 20): Promise<GiphyGif[]> {
   }
 }
 
+export async function searchStickers(query: string, limit = 20): Promise<GiphyGif[]> {
+  try {
+    const { data } = await gf.search(query, { limit, rating: 'pg-13', type: 'stickers' })
+    return data.map(formatGif)
+  } catch {
+    return []
+  }
+}
+
+export async function getTrendingStickers(limit = 20): Promise<GiphyGif[]> {
+  try {
+    const { data } = await gf.trending({ limit, rating: 'pg-13', type: 'stickers' })
+    return data.map(formatGif)
+  } catch {
+    return []
+  }
+}
+
 function formatGif(g: any): GiphyGif {
   return {
     id: g.id,

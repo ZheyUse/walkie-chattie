@@ -91,6 +91,7 @@ function MessageStatusIndicator({ msg, onRetry }: { msg: Message; onRetry: () =>
 export default function MessageItem({ msg, showAvatar = true, showNickname = true }: Props) {
   const { profile } = useAuthStore()
   const members = useSpaceStore(s => s.members)
+  const currentSpace = useSpaceStore(s => s.currentSpace)
   const retryMessage = useChatStore(s => s.retryMessage)
   const [revealStatus, setRevealStatus] = useState(false)
   const msgRowRef = useRef<HTMLDivElement>(null)
@@ -152,7 +153,17 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
           <div className="flex flex-col gap-0.5">
             {msg.type === 'shout' ? (
               <div
-                className="px-3.5 py-2 rounded-xl rounded-tl-none"
+                onClick={() => {
+                  if (!profile) return
+                  window.api.showShout({
+                    sender: msg.sender_nickname,
+                    message: msg.content || '',
+                    gifUrl: msg.gif_url || undefined,
+                    spaceName: currentSpace?.name,
+                    spaceIcon: currentSpace?.avatar_emoji,
+                  })
+                }}
+                className="px-3.5 py-2 rounded-xl rounded-tl-none cursor-pointer hover:opacity-90"
                 style={{
                   background: 'linear-gradient(135deg, rgba(232,101,42,0.18) 0%, rgba(180,50,20,0.1) 100%)',
                   border: '1px solid rgba(232,101,42,0.25)',
@@ -168,7 +179,15 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
               </div>
             ) : (msg.type === 'whisper' || msg.type === 'tap') ? (
               <div
-                className="px-3.5 py-2 rounded-xl rounded-tl-none"
+                onClick={() => {
+                  if (!profile) return
+                  window.api.showTap({
+                    sender: msg.sender_nickname,
+                    message: msg.content || '',
+                    gifUrl: msg.gif_url || undefined,
+                  })
+                }}
+                className="px-3.5 py-2 rounded-xl rounded-tl-none cursor-pointer hover:opacity-90"
                 style={{
                   background: 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(109,40,217,0.06) 100%)',
                   border: '1px solid rgba(139,92,246,0.2)',
