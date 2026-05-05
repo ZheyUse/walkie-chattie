@@ -5,6 +5,7 @@ module.exports = {
     extend: {
       fontFamily: {
         display: ['Host Grotesk', 'sans-serif'],
+        title: ['ZCOOL XiaoWei', 'serif'],
         body: ['Plus Jakarta Sans', 'sans-serif'],
       },
       colors: {

@@ -1,9 +1,10 @@
 import 'material-symbols'
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useSpaceStore } from "../../stores/space.store"
 import { useAuthStore } from "../../stores/auth.store"
 import Avatar from "../ui/Avatar"
 import ProfileTooltip from "../ui/ProfileTooltip"
+import ConfirmLogoutModal from "../modals/ConfirmLogoutModal"
 
 export default function SpacePanel() {
   const currentSpace = useSpaceStore(s => s.currentSpace)
@@ -11,10 +12,21 @@ export default function SpacePanel() {
   const setSpace = useSpaceStore(s => s.setSpace)
   const setJoinOrCreateModalOpen = useSpaceStore(s => s.setJoinOrCreateModalOpen)
   const profile = useAuthStore(s => s.profile)
+  const signOut = useAuthStore(s => s.signOut)
   const [tooltipOpen, setTooltipOpen] = useState(false)
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 })
   const [hoveredSpaceId, setHoveredSpaceId] = useState<string | null>(null)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const avatarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleRequest = () => {
+      setTooltipOpen(false)
+      setShowLogoutConfirm(true)
+    }
+    window.addEventListener('ui:logout-request', handleRequest)
+    return () => window.removeEventListener('ui:logout-request', handleRequest)
+  }, [])
 
   const handleAvatarClick = () => {
     if (!avatarRef.current) return
@@ -29,13 +41,14 @@ export default function SpacePanel() {
   }
 
   return (
-    <div
-      className="w-[64px] flex flex-col items-center py-3 gap-2 relative"
-      style={{
-        background: 'linear-gradient(180deg, rgba(26, 159, 255, 0.03) 0%, transparent 100%)',
-        borderRight: '1px solid rgba(139, 92, 246, 0.08)',
-      }}
-    >
+    <>
+      <div
+        className="w-[64px] flex flex-col items-center py-3 gap-2 relative"
+        style={{
+          background: 'linear-gradient(180deg, rgba(26, 159, 255, 0.03) 0%, transparent 100%)',
+          borderRight: '1px solid rgba(139, 92, 246, 0.08)',
+        }}
+      >
       {/* Active space orb */}
       {currentSpace && (
         <SpaceOrb
@@ -99,9 +112,24 @@ export default function SpacePanel() {
           onClose={() => setTooltipOpen(false)}
           top={tooltipPos.top}
           left={tooltipPos.left}
+          onRequestLogout={() => {
+            setTooltipOpen(false)
+            window.setTimeout(() => setShowLogoutConfirm(true), 0)
+          }}
         />
       )}
-    </div>
+      </div>
+
+      {showLogoutConfirm && (
+        <ConfirmLogoutModal
+          onClose={() => setShowLogoutConfirm(false)}
+          onConfirm={async () => {
+            await signOut()
+            setShowLogoutConfirm(false)
+          }}
+        />
+      )}
+    </>
   )
 }
 

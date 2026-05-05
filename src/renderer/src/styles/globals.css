@@ -119,3 +119,62 @@
   animation: spin-icon 1s linear infinite;
   display: inline-block;
 }
+
+/* ── Space Background Animations ── */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50%       { transform: translateY(-18px) scale(1.03); }
+}
+
+/* Shooting stars */
+@keyframes shoot {
+  0%   { transform: translateX(0) translateY(0) rotate(-35deg); opacity: 0; }
+  5%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translateX(-480px) translateY(340px) rotate(-35deg); opacity: 0; }
+}
+
+/* Nebula drift — purple wisps */
+@keyframes drift-a {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33%       { transform: translate(18px, -12px) scale(1.05); }
+  66%       { transform: translate(-10px, 14px) scale(0.97); }
+}
+/* Nebula drift — blue wisps */
+@keyframes drift-b {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  40%       { transform: translate(-16px, 10px) scale(1.06); }
+  70%       { transform: translate(12px, -8px) scale(0.98); }
+}
+
+/* Slow ambient orbital glow */
+@keyframes orbit-glow {
+  0%, 100% { opacity: 0.06; transform: rotate(0deg) scale(1); }
+  50%       { opacity: 0.1;  transform: rotate(180deg) scale(1.08); }
+}
+
+/* Twinkle — faster small stars */
+@keyframes twinkle-fast {
+  0%, 100% { opacity: 0.1; }
+  50%       { opacity: 0.8; }
+}
+
+/* Twinkle — slower large stars */
+@keyframes twinkle-slow {
+  0%, 100% { opacity: 0.15; }
+  50%       { opacity: 0.65; }
+}
+
+/* Cosmic dust scatter */
+@keyframes dust-drift {
+  0%, 100% { transform: translate(0px, 0px) rotate(0deg); opacity: 0.25; }
+  25%       { transform: translate(6px, -3px) rotate(90deg); opacity: 0.4; }
+  75%       { transform: translate(-4px, 5px) rotate(180deg); opacity: 0.18; }
+}
+
+/* Planet ring shimmer */
+@keyframes ring-shimmer {
+  0%, 100% { opacity: 0.04; }
+  50%       { opacity: 0.08; }
+}

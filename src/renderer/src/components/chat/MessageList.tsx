@@ -70,6 +70,11 @@ export default function MessageList() {
       })
   }
 
+  // ── Subscription state tracking ──
+  const subscriptionActiveRef = useRef(false)
+  const subscriptionErrorRef = useRef(false)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Load initial page
   useEffect(() => {
     if (!currentSpace) return
@@ -77,6 +82,11 @@ export default function MessageList() {
     setHasMore(true)
     markedRef.current.clear()
     fetchMessages(0, true)
+
+    // Reset subscription state on space change
+    subscriptionActiveRef.current = false
+    subscriptionErrorRef.current = false
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
 
     var ch = supabase
       .channel('space:' + currentSpace.id)
@@ -238,9 +248,27 @@ export default function MessageList() {
             }
           })
       })
-      .subscribe()
+      .subscribe(function(status: string) {
+        var connected = false
+        if (status === 'SUBSCRIBED') {
+          subscriptionActiveRef.current = true
+          subscriptionErrorRef.current = false
+          connected = true
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          subscriptionErrorRef.current = true
+          subscriptionActiveRef.current = false
+          debugLog({ level: 'warn', source: 'chat-realtime', message: 'Subscription failed, scheduling reconnect', details: { status, spaceId: currentSpace.id } })
+          reconnectTimerRef.current = window.setTimeout(function() {
+            if (currentSpace) { fetchMessages(0, true) }
+          }, 3000) as ReturnType<typeof setTimeout>
+        }
+        debugLog({ source: 'chat-realtime', message: 'Subscription status', details: { status, connected, spaceId: currentSpace.id } })
+      })
 
-    return function() { supabase.removeChannel(ch) }
+    return function() {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      supabase.removeChannel(ch)
+    }
   }, [currentSpace?.id])
 
   // Track scroll: detect user scrolled to top (load older) or bottom (enable auto-scroll)

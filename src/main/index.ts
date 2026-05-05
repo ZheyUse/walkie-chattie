@@ -104,7 +104,7 @@ function openDebugWindow() {
     minWidth: 720,
     minHeight: 480,
     show: false,
-    title: "Walkie-Chattie Debug",
+    title: "Astra Debug",
     backgroundColor: "#0e1117",
     autoHideMenuBar: true,
     webPreferences: {
@@ -123,8 +123,13 @@ function openDebugWindow() {
 
 function createWindow() {
   let iconPath = isDev
-    ? join(__dirname, '../../resources/icons/icon-16.png')
-    : join(process.resourcesPath, 'resources/icons/icon-16.png')
+    ? join(__dirname, '../../resources/icons/icon.ico')
+    : join(process.resourcesPath, 'resources/icons/icon.ico')
+  if (!iconPath || !iconPath.endsWith('.ico')) {
+    iconPath = isDev
+      ? join(__dirname, '../../resources/icons/icon-256.png')
+      : join(process.resourcesPath, 'resources/icons/icon-256.png')
+  }
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -171,13 +176,13 @@ function createWindow() {
 function createTray() {
   // In dev the path is relative to project root; in prod it's inside asar
   let iconPath = isDev
-    ? join(__dirname, '../../resources/icons/icon-16.png')
-    : join(process.resourcesPath, 'resources/icons/icon-16.png')
+    ? join(__dirname, '../../resources/icons/icon-32.png')
+    : join(process.resourcesPath, 'resources/icons/icon-32.png')
   const icon = nativeImage.createFromPath(iconPath)
   tray = new Tray(icon)
-  tray.setToolTip("Walkie-Chattie")
+  tray.setToolTip("Astra")
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Open Walkie-Chattie", click: () => mainWindow?.show() },
+    { label: "Open Astra", click: () => mainWindow?.show() },
     { type: "separator" },
     { label: "Quit", click: () => { isQuitting = true; app.quit() } },
   ]))
@@ -318,10 +323,84 @@ app.whenReady().then(() => {
     win?.close()
   })
 
-  // IPC: open URL in system default browser
+  // IPC: open URL in system default browser (fallback for non-OAuth URLs)
   ipcMain.on("open-external", (_, url) => {
     addDebugLog("info", "main-window", "Opening external URL", { url })
     shell.openExternal(url)
+  })
+
+  // IPC: open OAuth URL in a managed BrowserWindow so we can close it automatically
+  let oauthWindow: BrowserWindow | null = null
+  ipcMain.on("open-oauth-browser", (event, url: string) => {
+    addDebugLog("info", "main-window", "Opening OAuth in managed BrowserWindow", { url })
+
+    // Close any existing oauth window first
+    if (oauthWindow && !oauthWindow.isDestroyed()) {
+      oauthWindow.close()
+      oauthWindow = null
+    }
+
+    oauthWindow = new BrowserWindow({
+      width: 480,
+      height: 680,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      title: "Sign in to Astra",
+      backgroundColor: "#0a0e1a",
+      autoHideMenuBar: true,
+      show: true,
+      webPreferences: {
+        preload: join(__dirname, "../preload/index.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+      },
+    })
+
+    // Intercept the redirect callback URL and close the window automatically
+    let oauthSuccess = false
+    oauthWindow.webContents.on("will-navigate", (_, redirectUrl) => {
+      if (redirectUrl.startsWith("walkie-chattie://login-callback")) {
+        oauthSuccess = true
+        addDebugLog("info", "main-window", "OAuth redirect intercepted, closing window")
+        // Send the redirect URL to the app
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("oauth-callback", redirectUrl)
+        }
+        oauthWindow?.close()
+      }
+    })
+
+    // Also handle the case where Supabase immediately redirects to the custom protocol
+    oauthWindow.webContents.setWindowOpenHandler(({ url: openedUrl }) => {
+      if (openedUrl.startsWith("walkie-chattie://")) {
+        oauthSuccess = true
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("oauth-callback", openedUrl)
+        }
+        oauthWindow?.close()
+      } else {
+        shell.openExternal(openedUrl)
+      }
+      return { action: "deny" }
+    })
+
+    oauthWindow.on("closed", () => {
+      oauthWindow = null
+    })
+
+    // Only signal "user cancelled" if they closed the window manually (not via OAuth success)
+    oauthWindow.on("close", () => {
+      if (!oauthSuccess) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("oauth-closed")
+        }
+      }
+    })
+
+    oauthWindow.loadURL(url)
   })
 
   ipcMain.on("debug-open", () => openDebugWindow())

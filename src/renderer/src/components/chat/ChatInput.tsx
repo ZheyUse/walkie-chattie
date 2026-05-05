@@ -368,8 +368,8 @@ export default function ChatInput() {
   const handleMentionSelect = (nickname: string) => {
     const cursor = textareaRef.current?.selectionStart || 0
     const lastAt = value.lastIndexOf("@", cursor - 1)
-    // Strip __bold__ prefix that WhisperSuggest prepends to @all
-    const cleanNick = nickname.replace('__bold__', '')
+    // Normalize suggestion to avoid @@all when the label already includes @.
+    const cleanNick = nickname.replace('__bold__', '').replace(/^@+/, '')
     if (lastAt >= 0) setValue(value.slice(0, lastAt) + "@" + cleanNick + " " + value.slice(cursor))
     setMentionActive(false)
     setTimeout(() => textareaRef.current?.focus(), 0)

@@ -55,8 +55,8 @@ const api = {
     return () => ipcRenderer.removeListener('debug-log-entry', listener)
   },
 
-  // OAuth helpers — open OAuth URL in system browser (avoids Google blocking embedded browsers)
-  openSystemBrowser: (url: string) => ipcRenderer.send('open-external', url),
+  // OAuth helpers — open in a managed BrowserWindow so the tab auto-closes after auth
+  openSystemBrowser: (url: string) => ipcRenderer.send('open-oauth-browser', url),
 
   onOAuthCallback: (callback: (url: string) => void) =>
     ipcRenderer.on('oauth-callback', (_, url) => callback(url)),

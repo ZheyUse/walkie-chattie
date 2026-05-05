@@ -3,6 +3,8 @@
  * Run: node scripts/generate-icons.js
  */
 const sharp = require('sharp')
+const pngToIco = require('png-to-ico')
+const toIco = pngToIco.default || pngToIco
 const { readFileSync, writeFileSync, mkdirSync } = require('fs')
 const path = require('path')
 
@@ -38,5 +40,10 @@ const sizes = [
 
   // Copy SVG to public for debug page
   writeFileSync(path.join(publicDir, 'icon.svg'), readFileSync(svgPath, 'utf8'))
+  // Build Windows ICO from multiple PNG sizes
+  const icoPngs = [16, 32, 64, 128, 256]
+    .map(size => readFileSync(path.join(outDir, `icon-${size}.png`)))
+  const ico = await toIco(icoPngs)
+  writeFileSync(path.join(outDir, 'icon.ico'), ico)
   console.log(`\nAll icons from real SVG in: ${outDir}`)
 })()

@@ -28,7 +28,7 @@ export default function RoomModal({ onClose, closable = false }: Props) {
             <ellipse cx="12" cy="12" rx="10" ry="4" stroke="rgba(139,92,246,0.3)" strokeWidth="1" transform="rotate(120 12 12)" />
           </svg>
         </div>
-        <h2 className="font-display font-bold text-lg tracking-wide" style={{ color: 'rgba(232,234,237,0.9)' }}>WALKIE—CHATTIE</h2>
+        <h2 className="font-title font-bold text-lg tracking-wide" style={{ color: 'rgba(232,234,237,0.9)' }}>ASTRA</h2>
         <p className="text-sm font-body mt-1" style={{ color: 'rgba(90,100,120,0.6)' }}>Join a Space or create your own</p>
       </div>
 

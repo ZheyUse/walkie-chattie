@@ -5,6 +5,7 @@ import ChatInput from "../chat/ChatInput"
 import TypingIndicator from "../chat/TypingIndicator"
 import { useSpaceStore } from "../../stores/space.store"
 import { useChatStore } from "../../stores/chat.store"
+import MembersPanel from "./MembersPanel"
 
 export default function ChatArea() {
   const [dragging, setDragging] = useState(false)
@@ -67,9 +68,14 @@ export default function ChatArea() {
         )}
       </div>
 
-      <MessageList />
-      <TypingIndicator />
-      <ChatInput />
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <MessageList />
+          <TypingIndicator />
+          <ChatInput />
+        </div>
+        <MembersPanel />
+      </div>
 
       {/* Full-panel drag-and-drop overlay */}
       {dragging && (

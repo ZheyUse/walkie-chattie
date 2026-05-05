@@ -38,14 +38,20 @@ function loadProfile(userId: string, setProfile: (p: Profile | null) => void) {
     .then(({ data, error }) => {
       if (error) {
         debugLog({ level: "error", source: "auth", message: "Profile load failed", details: error })
+        // Don't wipe existing profile on network error — keep what we have
+      } else if (data) {
+        debugLog({ source: "auth", message: "Profile loaded", details: { userId } })
+        setProfile(data)
       } else {
-        debugLog({ source: "auth", message: data ? "Profile loaded" : "Profile missing", details: { userId } })
+        // No profile found — only log, don't clear the existing store value.
+        // This prevents wiping the profile set during onboarding (which happens
+        // before the first token-refresh fires onAuthStateChange).
+        debugLog({ source: "auth", message: "Profile missing — skipping set(null) to preserve onboarding state", details: { userId } })
       }
-      setProfile(data ?? null)
     })
     .catch((error) => {
       debugLog({ level: "error", source: "auth", message: "Profile load crashed or was blocked", details: error })
-      setProfile(null)
+      // Keep existing profile on crash too
     })
 }
 
@@ -325,15 +331,21 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
       debugLog({ source: "auth", message: "Auth state changed", details: { signedIn: Boolean(session?.user), userId: session?.user?.id } })
+      const prevUserId = useAuthStore.getState().user?.id
+      const userChanged = session?.user?.id !== prevUserId
       setSession(session)
       if (session?.user) {
         if (ready) {
-          // Only reset space state if we've already bootstrapped — avoid races
-          // during initial setup where setSpacesReady(true) from the auth flow
-          // would get stomped by this callback firing synchronously.
           setSpacesReady(false)
         }
-        loadProfile(session.user.id, setProfile)
+        // Only reload profile if the user actually changed (sign-in, not token refresh).
+        // This prevents wiping a profile that was just set (e.g. during onboarding)
+        // when Supabase fires onAuthStateChange for a routine session refresh.
+        if (userChanged) {
+          loadProfile(session.user.id, setProfile)
+        } else {
+          debugLog({ source: "auth", message: "Skipping profile reload — same user, likely session refresh" })
+        }
       } else {
         setProfile(null)
         setSpace(null)
@@ -391,7 +403,9 @@ export default function App() {
     if (!currentSpace || !user) return
 
     const channelName = `space-presence:${currentSpace.id}`
-    const channel = supabase.channel(channelName)
+    const channel = supabase.channel(channelName, {
+      config: { broadcast: { self: false }, presence: { key: user.id } }
+    })
 
     const syncOnlineUsers = () => {
       if (!useSpaceStore.getState().currentSpace) return
@@ -503,7 +517,10 @@ export default function App() {
 
   if (isBrowserOAuthRelay) {
     return <div className="h-screen bg-bg-deep flex items-center justify-center">
-      <div className="text-accent font-display text-xl animate-pulse">Returning to Walkie-Chattie...</div>
+      <div className="flex flex-col items-center gap-4">
+        <img src="/resources/icons/icon.svg" alt="Astra" className="w-16 h-16" />
+        <div className="text-accent font-title text-xl animate-pulse">Returning to Astra...</div>
+      </div>
     </div>
   }
 
@@ -518,7 +535,7 @@ export default function App() {
         <div className="text-accent font-display text-xl animate-pulse">Loading...</div>
         {loadingReasons[0] && (
           <div className="text-text-lo text-xs max-w-md text-center">
-            Waiting because {loadingReasons[0]}. Press F1 for Debug Mode.
+            Waiting because {loadingReasons[0]}.
           </div>
         )}
       </div>
