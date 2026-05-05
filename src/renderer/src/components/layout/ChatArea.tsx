@@ -6,6 +6,7 @@ import TypingIndicator from "../chat/TypingIndicator"
 import { useSpaceStore } from "../../stores/space.store"
 import { useChatStore } from "../../stores/chat.store"
 import MembersPanel from "./MembersPanel"
+import { spaceAvatarPath } from "../../lib/spaceAvatars"
 
 export default function ChatArea() {
   const [dragging, setDragging] = useState(false)
@@ -45,17 +46,12 @@ export default function ChatArea() {
       <div className="h-10 flex-shrink-0 flex items-center px-4 gap-3 border-b" style={{ borderColor: 'rgba(139, 92, 246, 0.08)' }}>
         {currentSpace && (
           <>
-            <div
-              className="w-5 h-5 rounded-md flex items-center justify-center text-xs leading-none border"
-              style={{
-                borderColor: 'rgba(139, 92, 246, 0.25)',
-                background: 'rgba(139, 92, 246, 0.08)',
-                color: 'rgba(139, 92, 246, 0.7)',
-                fontSize: '0.7rem',
-              }}
-            >
-              {currentSpace.avatar_emoji}
-            </div>
+            <img
+              className="rounded-sm"
+              style={{ width: '18px', height: '18px', objectFit: 'contain' }}
+              src={spaceAvatarPath(currentSpace.avatar_emoji)}
+              alt={currentSpace.name}
+            />
             <span className="text-text-md text-xs font-display font-medium tracking-wide">{currentSpace.name}</span>
             <div className="ml-auto flex items-center gap-1.5">
               <div

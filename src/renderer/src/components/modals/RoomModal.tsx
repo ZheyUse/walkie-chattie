@@ -6,6 +6,7 @@ import { useSpaceStore, type Space } from "../../stores/space.store"
 import Modal from "../ui/Modal"
 import CreateSpaceForm from "./CreateSpaceForm"
 import { debugLog } from "../../lib/debug"
+import { spaceAvatarPath } from "../../lib/spaceAvatars"
 
 interface Props { onClose: () => void; closable?: boolean }
 
@@ -182,10 +183,11 @@ function JoinView({ onJoined }: JoinViewProps) {
 
       <Modal open={previewSpace !== null} onClose={() => setPreviewSpace(null)} size="sm">
         <div className="flex flex-col items-center gap-4 p-2">
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl"
-            style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(26,159,255,0.08) 100%)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 24px rgba(139,92,246,0.15)' }}>
-            {previewSpace?.avatar_emoji ?? "🚀"}
-          </div>
+          <img
+              className="w-12 h-12 object-contain"
+              src={spaceAvatarPath(previewSpace?.avatar_emoji ?? 'avatar-rocket.svg')}
+              alt={previewSpace?.name ?? 'space'}
+            />
           <div className="text-center">
             <h3 className="font-title font-bold text-base" style={{ color: 'rgba(232,234,237,0.95)' }}>{previewSpace?.name}</h3>
             <p className="text-xs mt-1 font-body" style={{ color: 'rgba(90,100,120,0.5)' }}>Ready to enter?</p>

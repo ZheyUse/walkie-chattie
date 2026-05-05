@@ -6,6 +6,7 @@ import Avatar from "../ui/Avatar"
 import ProfileTooltip from "../ui/ProfileTooltip"
 import ConfirmLogoutModal from "../modals/ConfirmLogoutModal"
 import { debugLog } from "../../lib/debug"
+import { spaceAvatarPath } from "../../lib/spaceAvatars"
 
 export default function SpacePanel() {
   const currentSpace = useSpaceStore(s => s.currentSpace)
@@ -94,7 +95,7 @@ export default function SpacePanel() {
       {/* Active space orb */}
       {currentSpace && (
         <SpaceOrb
-          emoji={currentSpace.avatar_emoji}
+          avatarImg={currentSpace.avatar_emoji}
           name={currentSpace.name}
           active
           hovered={hoveredSpaceId === currentSpace.id}
@@ -112,7 +113,7 @@ export default function SpacePanel() {
       {spaces.filter(s => s.id !== currentSpace?.id).map(space => (
         <SpaceOrb
           key={space.id}
-          emoji={space.avatar_emoji}
+          avatarImg={space.avatar_emoji}
           name={space.name}
           active={false}
           hovered={hoveredSpaceId === space.id}
@@ -177,7 +178,7 @@ export default function SpacePanel() {
 }
 
 interface SpaceOrbProps {
-  emoji: string
+  avatarImg: string
   name: string
   active: boolean
   hovered: boolean
@@ -187,7 +188,7 @@ interface SpaceOrbProps {
   tooltip: string
 }
 
-function SpaceOrb({ emoji, name, active, hovered, onMouseEnter, onMouseLeave, onClick, tooltip }: SpaceOrbProps) {
+function SpaceOrb({ avatarImg, name, active, hovered, onMouseEnter, onMouseLeave, onClick, tooltip }: SpaceOrbProps) {
   const glowColor = active ? 'rgba(139, 92, 246, 0.4)' : 'rgba(26, 159, 255, 0.25)'
   const borderColor = active
     ? 'rgba(139, 92, 246, 0.5)'
@@ -226,7 +227,7 @@ function SpaceOrb({ emoji, name, active, hovered, onMouseEnter, onMouseLeave, on
               : 'none',
           }}
         />
-        <span className="relative z-10 text-lg leading-none drop-shadow-lg">{emoji}</span>
+        <img className="relative z-10 w-6 h-6 object-contain" src={spaceAvatarPath(avatarImg)} alt={name} />
       </button>
 
       {/* Tooltip */}

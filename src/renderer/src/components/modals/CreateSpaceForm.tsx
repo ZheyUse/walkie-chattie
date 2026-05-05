@@ -5,12 +5,7 @@ import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore } from "../../stores/space.store"
 import { generateId } from "../../lib/id-gen"
 import { debugLog } from "../../lib/debug"
-
-const AVATAR_EMOJIS = [
-  "🚀", "🛸", "🌌", "⭐", "🌙", "🪐",
-  "🔮", "💎", "⚡", "🔥", "🎯", "🎮",
-  "🛡️", "🔭", "🌊", "⚔️",
-]
+import { SPACE_AVATARS } from "../../lib/spaceAvatars"
 
 export default function CreateSpaceForm() {
   const user = useAuthStore(s => s.user)
@@ -22,7 +17,7 @@ export default function CreateSpaceForm() {
 
   const [name, setName] = useState("")
   const [spaceId] = useState(generateId())
-  const [emojiIdx, setEmojiIdx] = useState(0)
+  const [selectedIdx, setSelectedIdx] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -36,9 +31,9 @@ export default function CreateSpaceForm() {
     setLoading(true)
     setError("")
 
-    const emoji = AVATAR_EMOJIS[emojiIdx]
-    const space = { id: spaceId, name: name.trim(), avatar_emoji: emoji, owner_id: user.id, context_window_limit: 12000, context_window_used: 0 }
-    debugLog({ source: "create-space", message: "Inserting space", details: { spaceId, name: name.trim(), emoji } })
+    const selectedAvatar = SPACE_AVATARS[selectedIdx].filename
+    const space = { id: spaceId, name: name.trim(), avatar_emoji: selectedAvatar, owner_id: user.id, context_window_limit: 12000, context_window_used: 0 }
+    debugLog({ source: "create-space", message: "Inserting space", details: { spaceId, name: name.trim(), selectedAvatar } })
     const { error: spaceErr } = await supabase.from("spaces").insert(space)
     if (spaceErr) {
       debugLog({ level: "error", source: "create-space", message: "Failed to create space", details: spaceErr })
@@ -95,15 +90,19 @@ export default function CreateSpaceForm() {
 
       <div>
         <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Avatar</label>
-        <div className="grid grid-cols-8 gap-1">
-          {AVATAR_EMOJIS.map((e, i) => (
-            <button key={i} type="button" onClick={() => setEmojiIdx(i)}
-              className="aspect-square rounded-lg flex items-center justify-center text-base transition-all duration-150 hover:scale-110"
+        <div className="grid grid-cols-10 gap-1">
+          {SPACE_AVATARS.map((a, i) => (
+            <button key={i} type="button" onClick={() => setSelectedIdx(i)}
+              className="aspect-square rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-110"
               style={{
-                background: emojiIdx === i ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)',
-                border: emojiIdx === i ? '1px solid rgba(139,92,246,0.5)' : '1px solid transparent',
+                background: selectedIdx === i ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)',
+                border: selectedIdx === i ? '1px solid rgba(139,92,246,0.5)' : '1px solid transparent',
               }}>
-              {e}
+              <img
+                src={`/resources/space-avatar/${a.filename}`}
+                alt={a.label}
+                className="w-6 h-6 object-contain"
+              />
             </button>
           ))}
         </div>

@@ -6,18 +6,13 @@ import { useSpaceStore } from '../../stores/space.store'
 import { useChatStore } from '../../stores/chat.store'
 import { debugLog } from '../../lib/debug'
 import { toast } from '../../lib/toast'
+import { SPACE_AVATARS, spaceAvatarPath } from '../../lib/spaceAvatars'
 import ContextMeter from '../ui/ContextMeter'
 import DeleteSpaceModal from '../modals/DeleteSpaceModal'
 import RenameModal from '../modals/RenameModal'
 import ResetChatModal from '../modals/ResetChatModal'
 import MuteModal from '../modals/MuteModal'
 import SpaceDetails from '../modals/SpaceDetails'
-
-const AVATAR_EMOJIS = [
-  "🚀", "🛸", "🌌", "⭐", "🌙", "🪐",
-  "🔮", "💎", "⚡", "🔥", "🎯", "🎮",
-  "🛡️", "🔭", "🌊", "⚔️",
-]
 
 function getMuteKey(spaceId: string) { return `space-muted:${spaceId}` }
 function getMuteExpiry(spaceId: string): number | null {
@@ -43,7 +38,6 @@ export default function SettingsPanel() {
   const [editNameValue, setEditNameValue] = useState('')
   const [renameConfirm, setRenameConfirm] = useState<{ from: string; to: string } | null>(null)
   const [avatarPicker, setAvatarPicker] = useState(false)
-  const [avatarInput, setAvatarInput] = useState("")
   const [includeInShout, setIncludeInShout] = useState(() => localStorage.getItem('include_self_shout') === 'true')
   const [copiedId, setCopiedId] = useState(false)
   const [showMuteModal, setShowMuteModal] = useState(false)
@@ -74,11 +68,11 @@ export default function SettingsPanel() {
     setRenameConfirm(null)
   }
 
-  const handleChangeAvatar = async (emoji: string) => {
+  const handleChangeAvatar = async (avatarFilename: string) => {
     if (!currentSpace) return
-    await supabase.from('spaces').update({ avatar_emoji: emoji }).eq('id', currentSpace.id)
-    setSpace({ ...currentSpace, avatar_emoji: emoji })
-    setSpaces(spaces.map(s => s.id === currentSpace.id ? { ...s, avatar_emoji: emoji } : s))
+    await supabase.from('spaces').update({ avatar_emoji: avatarFilename }).eq('id', currentSpace.id)
+    setSpace({ ...currentSpace, avatar_emoji: avatarFilename })
+    setSpaces(spaces.map(s => s.id === currentSpace.id ? { ...s, avatar_emoji: avatarFilename } : s))
     setAvatarPicker(false)
   }
 
@@ -161,11 +155,15 @@ export default function SettingsPanel() {
             <h2 className="font-display font-bold text-sm tracking-wider" style={{ color: 'rgba(232,234,237,0.9)' }}>Settings</h2>
             {/* Space avatar quick picker */}
             <button
-              onClick={() => { setAvatarPicker(!avatarPicker); setAvatarInput(currentSpace?.avatar_emoji || "") }}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all duration-150 hover:scale-105"
+              onClick={() => setAvatarPicker(!avatarPicker)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105"
               style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.15)' }}
             >
-              {currentSpace?.avatar_emoji}
+              <img
+                className="w-5 h-5 object-contain"
+                src={spaceAvatarPath(currentSpace?.avatar_emoji ?? 'avatar-rocket.svg')}
+                alt={currentSpace?.name}
+              />
             </button>
           </div>
 
@@ -224,26 +222,25 @@ export default function SettingsPanel() {
             <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
               <p className="text-[10px] font-body uppercase tracking-wider mb-2" style={{ color: 'rgba(90,100,120,0.5)' }}>Choose an avatar</p>
               <div className="grid grid-cols-8 gap-1 mb-2">
-                {AVATAR_EMOJIS.map((e, i) => (
+                {SPACE_AVATARS.map((a, i) => (
                   <button
                     key={i}
-                    onClick={() => handleChangeAvatar(e)}
-                    className="aspect-square rounded-lg flex items-center justify-center text-base transition-all duration-150 hover:scale-110"
+                    onClick={() => handleChangeAvatar(a.filename)}
+                    className="aspect-square rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-110"
                     style={{
-                      background: currentSpace?.avatar_emoji === e ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
-                      border: currentSpace?.avatar_emoji === e ? '1px solid rgba(139,92,246,0.5)' : '1px solid transparent',
+                      background: currentSpace?.avatar_emoji === a.filename ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
+                      border: currentSpace?.avatar_emoji === a.filename ? '1px solid rgba(139,92,246,0.5)' : '1px solid transparent',
                     }}
                   >
-                    {e}
+                    <img
+                      src={spaceAvatarPath(a.filename)}
+                      alt={a.label}
+                      className="w-5 h-5 object-contain"
+                    />
                   </button>
                 ))}
               </div>
-              <div className="flex gap-1.5">
-                <input value={avatarInput} onChange={e => setAvatarInput(e.target.value)} maxLength={2}
-                  className="input-field text-sm w-14 text-center text-base" placeholder="🙂" />
-                <button onClick={() => handleChangeAvatar(avatarInput)} className="btn-ghost text-xs px-2 font-display font-semibold">Set</button>
-                <button onClick={() => setAvatarPicker(false)} className="btn-ghost text-xs px-2 text-text-lo">×</button>
-              </div>
+              <button onClick={() => setAvatarPicker(false)} className="btn-ghost text-xs px-2 text-text-lo">× Close</button>
             </div>
           )}
 
