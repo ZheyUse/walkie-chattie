@@ -17,16 +17,21 @@ const listeners: Set<(item: NotificationItem) => void> = new Set()
  * Trigger a notification. Shows in-app toast when window is focused,
  * OS native notification when window is unfocused/minimized.
  */
-export async function triggerNotification(payload: {
-  title: string
-  body: string
-  tag: string
-  avatarColor?: string
-  avatarInitials?: string
-}) {
-  const focused = await window.api.isWindowFocused()
+export async function triggerNotification(
+  payload: {
+    title: string
+    body: string
+    tag: string
+    avatarColor?: string
+    avatarInitials?: string
+  },
+  bypassMute = false
+) {
+  const isMuted = useSpaceStore.getState().isMuted()
+  // Always notify for @mentions even when muted (like Discord)
+  if (isMuted && !bypassMute) return
 
-  if (useSpaceStore.getState().isMuted()) return // notifications are muted
+  const focused = await window.api.isWindowFocused()
 
   playSound('notification') // sound always plays when notification fires (muted check above covers this)
 

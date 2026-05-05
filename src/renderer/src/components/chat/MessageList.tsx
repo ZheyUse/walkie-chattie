@@ -133,13 +133,22 @@ export default function MessageList() {
 
         const isOwn = msg.sender_id === profileIdRef.current
         if (!isOwn) {
+          // Detect @mentions — still notify these even when the space is muted (like Discord)
+          const myNickname = profileIdRef.current ? useAuthStore.getState().profile?.nickname : null
+          const contentLower = (msg.content || '').toLowerCase()
+          const isMentioned = myNickname
+            ? contentLower.includes(`@${myNickname.toLowerCase()}`)
+            : false
+
+          if (isMentioned) debugLog({ source: 'chat-realtime', message: 'Mention detected — bypassing mute', details: { myNickname, content: msg.content } })
+
           triggerNotification({
             title: msg.sender_nickname || 'New message',
             body: msg.type === 'shout' ? '🔊 ' + (msg.content || '') :
                   msg.type === 'whisper' || msg.type === 'tap' ? '💜 ' + (msg.content || '') :
                   (msg.content || ''),
             tag: msg.id,
-          })
+          }, isMentioned)
         }
 
         const currentMessages = useChatStore.getState().messages

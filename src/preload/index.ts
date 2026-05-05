@@ -66,7 +66,7 @@ const api = {
     ipcRenderer.on('oauth-closed', () => callback()),
 
   // Custom protocol redirect URI for OAuth
-  getOAuthRedirectUri: () => 'walkie-chattie://login-callback',
+  getOAuthRedirectUri: () => 'astra://login-callback',
 
   // Native OS notifications
   showNotification: (data: NotificationPayload) =>

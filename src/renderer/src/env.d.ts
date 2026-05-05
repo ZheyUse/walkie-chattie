@@ -9,6 +9,7 @@ interface Window {
     showShout: (data: { sender: string; message: string; gifUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
     showTap: (data: { sender: string; message: string; gifUrl?: string; color?: string }) => void
     showBroadcast: (data: { sender: string; message: string; gifUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
+    isWindowFocused: () => Promise<boolean>
     closePopup: () => void
     openSystemBrowser: (url: string) => void
     onOAuthCallback: (callback: (url: string) => void) => void

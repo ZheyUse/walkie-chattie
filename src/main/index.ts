@@ -3,7 +3,7 @@ import { join, resolve } from "path"
 
 // isDev: detect if running in dev mode
 const isDev = !!(process.env.ELECTRON_RENDERER_URL || process.env.ELECTRON_ENABLE_LOGGING)
-const DEEP_LINK_PROTOCOL = "walkie-chattie"
+const DEEP_LINK_PROTOCOL = "astra"
 
 let mainWindow: BrowserWindow | null = null
 let debugWindow: BrowserWindow | null = null
@@ -150,8 +150,8 @@ function createWindow() {
   })
 
   mainWindow.on("ready-to-show", () => {
-    mainWindow?.show()
-    if (pendingOAuthUrl && mainWindow) {
+    if (!pendingOAuthUrl) mainWindow?.hide()
+    if (pendingOAuthUrl) {
       finishOAuth(pendingOAuthUrl)
       pendingOAuthUrl = null
     }
@@ -370,14 +370,14 @@ app.whenReady().then(() => {
 
     // Intercept the redirect callback URL and close the window automatically
     oauthWindow.webContents.on("will-navigate", (_, redirectUrl) => {
-      if (redirectUrl.startsWith("walkie-chattie://login-callback")) {
+      if (redirectUrl.startsWith("astra://login-callback")) {
         addDebugLog("info", "main-window", "OAuth redirect intercepted, closing window")
         finishOAuth(redirectUrl)
       }
     })
 
     oauthWindow.webContents.on("will-redirect", (_, redirectUrl) => {
-      if (redirectUrl.startsWith("walkie-chattie://login-callback")) {
+      if (redirectUrl.startsWith("astra://login-callback")) {
         addDebugLog("info", "main-window", "OAuth redirect intercepted during redirect, closing window")
         finishOAuth(redirectUrl)
       }
@@ -385,7 +385,7 @@ app.whenReady().then(() => {
 
     // Also handle the case where Supabase immediately redirects to the custom protocol
     oauthWindow.webContents.setWindowOpenHandler(({ url: openedUrl }) => {
-      if (openedUrl.startsWith("walkie-chattie://")) {
+      if (openedUrl.startsWith("astra://")) {
         finishOAuth(openedUrl)
       } else {
         shell.openExternal(openedUrl)
@@ -452,9 +452,8 @@ app.whenReady().then(() => {
   createWindow()
   createTray()
 
-  // Auto-start
-  // TODO (PRODUCTION): Uncomment this when ready to ship
-  // app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
+  // Auto-start in background (like Epic/Riot — no window on boot)
+  app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
