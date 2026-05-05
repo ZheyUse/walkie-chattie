@@ -77,6 +77,14 @@ const api = {
     return () => ipcRenderer.removeListener('notification-clicked', listener)
   },
   isWindowFocused: () => ipcRenderer.invoke('is-window-focused') as Promise<boolean>,
+
+  // Auto-updater
+  restartToUpdate: () => ipcRenderer.send('restart-to-update'),
+  onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number }) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, data: { status: string; version?: string; percent?: number }) => callback(data)
+    ipcRenderer.on('update-status', listener)
+    return () => ipcRenderer.removeListener('update-status', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

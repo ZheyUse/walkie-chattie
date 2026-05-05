@@ -40,5 +40,8 @@ interface Window {
       message: string
       details?: unknown
     }) => void) => () => void
+    // Auto-updater
+    restartToUpdate: () => void
+    onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number }) => void) => () => void
   }
 }

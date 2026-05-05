@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "astra",
   "version": "1.0.0",
   "description": "Astra — Steam-dark desktop chat app",
@@ -16,6 +16,7 @@
     "@giphy/js-fetch-api": "^5.8.0",
     "@giphy/react-components": "^10.1.2",
     "@supabase/supabase-js": "^2.105.3",
+    "electron-updater": "^6.8.3",
     "material-symbols": "^0.44.4",
     "zustand": "^5.0.1"
   },
@@ -73,6 +74,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "ZheyUse",
+      "repo": "walkie-chattie"
     }
   }
 }

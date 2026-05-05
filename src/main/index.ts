@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, Notification } from "electron"
 import { join, resolve } from "path"
+import { autoUpdater } from "electron-updater"
 
 // isDev: detect if running in dev mode
 const isDev = !!(process.env.ELECTRON_RENDERER_URL || process.env.ELECTRON_ENABLE_LOGGING)
@@ -451,6 +452,16 @@ app.whenReady().then(() => {
 
   createWindow()
   createTray()
+  setupAutoUpdater()
+
+  // IPC: check if window is focused (used by renderer to decide in-app vs OS notification)
+  ipcMain.handle("is-window-focused", () => mainWindow?.isFocused() ?? false)
+
+  // IPC: install downloaded update and restart
+  ipcMain.on("restart-to-update", () => {
+    isQuitting = true
+    autoUpdater.quitAndInstall()
+  })
 
   // Auto-start in background (like Epic/Riot — no window on boot)
   app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
@@ -462,3 +473,47 @@ app.whenReady().then(() => {
 })
 
 app.on("before-quit", () => { isQuitting = true })
+
+// ── Auto-updater ────────────────────────────────────────────────────────────
+function setupAutoUpdater() {
+  autoUpdater.logger = {
+    info: (msg) => addDebugLog("info", "updater", String(msg)),
+    warn: (msg) => addDebugLog("warn", "updater", String(msg)),
+    error: (msg) => addDebugLog("error", "updater", String(msg)),
+    debug: (msg) => addDebugLog("info", "updater", `[debug] ${String(msg)}`),
+  }
+
+  autoUpdater.on("checking-for-update", () => {
+    addDebugLog("info", "updater", "Checking for updates...")
+  })
+
+  autoUpdater.on("update-available", (info) => {
+    addDebugLog("info", "updater", "Update available", info)
+    mainWindow?.webContents.send("update-status", { status: "available", version: info.version })
+  })
+
+  autoUpdater.on("update-not-available", () => {
+    addDebugLog("info", "updater", "No updates available")
+  })
+
+  autoUpdater.on("download-progress", (progress) => {
+    addDebugLog("info", "updater", "Download progress", { percent: progress.percent.toFixed(1) })
+    mainWindow?.webContents.send("update-status", { status: "downloading", percent: Math.round(progress.percent) })
+  })
+
+  autoUpdater.on("update-downloaded", (info) => {
+    addDebugLog("info", "updater", `Update ${info.version} downloaded — will install on restart`)
+    mainWindow?.webContents.send("update-status", { status: "ready", version: info.version })
+  })
+
+  autoUpdater.on("error", (err) => {
+    addDebugLog("error", "updater", "Auto-updater error", err)
+  })
+
+  // Check for updates — skips in dev mode (ELECTRON_RENDERER_URL is only set in dev)
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      addDebugLog("error", "updater", "checkForUpdatesAndNotify failed", err)
+    })
+  }
+}
