@@ -5,6 +5,7 @@ import { useAuthStore } from "../../stores/auth.store"
 import Avatar from "../ui/Avatar"
 import ProfileTooltip from "../ui/ProfileTooltip"
 import ConfirmLogoutModal from "../modals/ConfirmLogoutModal"
+import { debugLog } from "../../lib/debug"
 
 export default function SpacePanel() {
   const currentSpace = useSpaceStore(s => s.currentSpace)
@@ -18,26 +19,67 @@ export default function SpacePanel() {
   const [hoveredSpaceId, setHoveredSpaceId] = useState<string | null>(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const avatarRef = useRef<HTMLDivElement>(null)
+  const suppressClickRef = useRef(false)
 
   useEffect(() => {
-    const handleRequest = () => {
-      setTooltipOpen(false)
-      setShowLogoutConfirm(true)
+    const handleTooltipClosing = () => {
+      debugLog({ source: "space-panel", message: "tooltip-closing event — setting suppressClickRef=true", details: {} })
+      suppressClickRef.current = true
     }
-    window.addEventListener('ui:logout-request', handleRequest)
-    return () => window.removeEventListener('ui:logout-request', handleRequest)
+    window.addEventListener('ui:tooltip-closing', handleTooltipClosing)
+    return () => window.removeEventListener('ui:tooltip-closing', handleTooltipClosing)
   }, [])
 
+  // Capture-phase click listener — fires BEFORE React's onClick (bubble phase).
+  // This intercepts the closing-click and sets suppress before React processes it.
+  useEffect(() => {
+    const el = avatarRef.current
+    if (!el) return
+    const captureClick = (e: Event) => {
+      debugLog({ source: "space-panel", message: "capture-phase click on avatar", details: { suppressBefore: suppressClickRef.current } })
+      if (suppressClickRef.current) {
+        e.stopPropagation()
+        e.preventDefault()
+        debugLog({ source: "space-panel", level: "error", message: "capture click BLOCKED — preventDefault+stopPropagation", details: {} })
+      }
+    }
+    el.addEventListener('click', captureClick, true)
+    return () => el.removeEventListener('click', captureClick, true)
+  }, [])
+
+  useEffect(() => {
+    debugLog({ source: "space-panel", level: "warn", message: `tooltipOpen changed → ${tooltipOpen}`, details: {} })
+    if (!tooltipOpen) {
+      debugLog({ source: "space-panel", message: "tooltip closed — resetting suppressClickRef in 500ms", details: {} })
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+        debugLog({ source: "space-panel", message: "suppressClickRef reset to false — avatar clicks unblocked", details: {} })
+      }, 500)
+    }
+  }, [tooltipOpen])
+
   const handleAvatarClick = () => {
-    if (!avatarRef.current) return
-    if (tooltipOpen) { setTooltipOpen(false); return }
-    const r = avatarRef.current.getBoundingClientRect()
-    const panelHeight = 300
-    const gap = 12
-    const left = r.right + gap
-    const top = Math.max(8, r.bottom - panelHeight)
-    setTooltipPos({ top, left })
-    setTooltipOpen(true)
+    if (suppressClickRef.current) {
+      debugLog({ source: "space-panel", level: "error", message: "handleAvatarClick BLOCKED — suppressClickRef is true (tooltip closing in progress)", details: {} })
+      return
+    }
+    debugLog({ source: "space-panel", message: "handleAvatarClick fired — processing toggle", details: {} })
+    if (avatarRef.current) {
+      const r = avatarRef.current.getBoundingClientRect()
+      const panelHeight = 300
+      const gap = 12
+      setTooltipPos({ top: Math.max(8, r.bottom - panelHeight), left: r.right + gap })
+    }
+    setTooltipOpen(prev => {
+      const next = !prev
+      debugLog({
+        source: "space-panel",
+        level: next ? "info" : "warn",
+        message: next ? "handleAvatarClick → opening tooltip" : "handleAvatarClick → closing tooltip",
+        details: { currentState: prev, nextState: next },
+      })
+      return next
+    })
   }
 
   return (
@@ -109,6 +151,7 @@ export default function SpacePanel() {
       </div>
       {tooltipOpen && (
         <ProfileTooltip
+          avatarRef={avatarRef}
           onClose={() => setTooltipOpen(false)}
           top={tooltipPos.top}
           left={tooltipPos.left}

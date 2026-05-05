@@ -13,6 +13,7 @@ import CommandSuggest from "./CommandSuggest"
 import { debugLog } from "../../lib/debug"
 import { sendTyping, sendStopTyping } from "../../lib/typing-channel"
 import { toast } from "../../lib/toast"
+import { playSound } from "../../lib/sounds"
 import type { Message } from "../../stores/chat.store"
 
 // Tooltip component reused for all icon buttons
@@ -301,6 +302,7 @@ export default function ChatInput() {
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
+      playSound('sent')
     }
   }, [value, pendingImage, pendingGifUrl, currentSpace, profile, members, prependMessage, doInsertMessage, setPendingImage, setPendingGif])
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { playSound } from '../../lib/sounds'
 
 interface PopupData {
   sender: string
@@ -31,6 +32,9 @@ export default function ShoutPopup() {
   const spaceName = data.spaceName || 'Space'
   const spaceIcon = data.spaceIcon || '📢'
   const [countdown, setCountdown] = useState(5)
+
+  // Play shout sound on mount
+  useEffect(() => { playSound('shout') }, [])
 
   // Close on click anywhere in the popup
   useEffect(() => {

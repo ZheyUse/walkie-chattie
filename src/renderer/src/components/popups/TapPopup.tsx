@@ -1,5 +1,6 @@
 import 'material-symbols'
 import { useState, useEffect } from "react"
+import { playSound } from '../../lib/sounds'
 
 interface PopupData { sender: string; message: string; gifUrl?: string }
 
@@ -22,6 +23,9 @@ function getTapFontSize(message: string) {
 export default function TapPopup() {
   const [data] = useState(getPopupData)
   const [countdown, setCountdown] = useState(5)
+
+  // Play tap sound on mount
+  useEffect(() => { playSound('tap') }, [])
 
   // Close on click anywhere in the popup
   useEffect(() => {

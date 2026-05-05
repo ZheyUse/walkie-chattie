@@ -2,21 +2,32 @@ import 'material-symbols'
 import { useEffect, useRef } from 'react'
 import { useAuthStore } from '../../stores/auth.store'
 import Avatar from './Avatar'
+import { debugLog } from '../../lib/debug'
 
-interface Props { top: number; left: number; onClose: () => void; onRequestLogout?: () => void }
+interface Props { top: number; left: number; onClose: () => void; onRequestLogout: () => void; avatarRef?: React.RefObject<HTMLDivElement | null> }
 
-export default function ProfileTooltip({ top, left, onClose, onRequestLogout }: Props) {
+export default function ProfileTooltip({ top, left, onClose, onRequestLogout, avatarRef }: Props) {
   const { profile, user } = useAuthStore()
   const ref = useRef<HTMLDivElement>(null)
-  const requestLogout = typeof onRequestLogout === 'function'
-    ? onRequestLogout
-    : () => window.dispatchEvent(new CustomEvent('ui:logout-request'))
+  const isAvatarClick = (el: HTMLElement) => avatarRef?.current?.contains(el) ?? false
+
+  debugLog({ source: "profile-tooltip", message: "tooltip mounted — opened", details: { top, left, hasAvatarRef: !!avatarRef?.current } })
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      const targetEl = e.target as HTMLElement
+      const isInsideTooltip = ref.current && ref.current.contains(targetEl)
+      const isAvatar = isAvatarClick(targetEl)
+      debugLog({
+        source: "profile-tooltip",
+        message: isInsideTooltip ? "mousedown inside tooltip — ignoring" : isAvatar ? "mousedown on avatar — NOT closing tooltip" : "mousedown OUTSIDE tooltip — calling onClose",
+        details: { target: targetEl.tagName, isInsideTooltip, isAvatar },
+      })
+      if (isInsideTooltip) return
+      if (isAvatar) return
+      window.dispatchEvent(new CustomEvent('ui:tooltip-closing'))
+      onClose()
     }
-    // Delay so the click that opened it doesn't immediately close it
     const t = setTimeout(() => document.addEventListener('mousedown', h), 0)
     return () => { clearTimeout(t); document.removeEventListener('mousedown', h) }
   }, [onClose])
@@ -24,6 +35,7 @@ export default function ProfileTooltip({ top, left, onClose, onRequestLogout }: 
   return (
     <div
       ref={ref}
+      onClick={e => e.stopPropagation()}
       className="fixed z-50 w-60 bg-bg-panel border border-border-md rounded-card shadow-2xl overflow-hidden flex flex-col"
       style={{ top, left }}
     >
@@ -69,7 +81,8 @@ export default function ProfileTooltip({ top, left, onClose, onRequestLogout }: 
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              requestLogout()
+              debugLog({ source: "profile-tooltip", message: "logout clicked — firing onRequestLogout", details: { target: (e.target as HTMLElement)?.tagName } })
+              onRequestLogout()
             }}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors text-left"
           >

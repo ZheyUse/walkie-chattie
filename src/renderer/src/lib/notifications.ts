@@ -1,4 +1,5 @@
 import { useSpaceStore } from '../stores/space.store'
+import { playSound } from './sounds'
 
 export interface NotificationItem {
   id: number
@@ -26,6 +27,8 @@ export async function triggerNotification(payload: {
   const focused = await window.api.isWindowFocused()
 
   if (useSpaceStore.getState().isMuted()) return // notifications are muted
+
+  playSound('notification') // sound always plays when notification fires (muted check above covers this)
 
   const item: NotificationItem = {
     id: Date.now(),
