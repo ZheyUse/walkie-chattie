@@ -2,6 +2,7 @@ import 'material-symbols'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth.store'
+import { debugLog } from '../lib/debug'
 
 const AVATAR_COLORS = [
   '#1a9fff', '#e8652a', '#4db35e', '#9b59b6',
@@ -66,22 +67,26 @@ export default function OnboardingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user || !nickname.trim() || nickname.length < 2) {
+      debugLog({ level: "warn", source: "onboarding", message: "Submit validation failed", details: { hasUser: Boolean(user), nicknameLength: nickname.length } })
       setError('Nickname must be at least 2 characters.')
       return
     }
     setSaving(true)
     setError(null)
     const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]
+    debugLog({ source: "onboarding", message: "Inserting profile", details: { nickname: nickname.trim(), color } })
     const { data, error: dbError } = await supabase
       .from('profiles')
       .insert({ id: user.id, nickname: nickname.trim(), avatar_color: color })
       .select()
       .single()
     if (dbError) {
+      debugLog({ level: "error", source: "onboarding", message: "Profile insert failed", details: dbError })
       setError(dbError.message.includes('unique') ? 'Nickname already taken.' : dbError.message)
       setSaving(false)
       return
     }
+    debugLog({ source: "onboarding", message: "Profile created successfully", details: { profileId: data.id, nickname: data.nickname } })
     setProfile(data)
     setSaving(false)
   }

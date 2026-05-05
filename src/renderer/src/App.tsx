@@ -38,20 +38,13 @@ function loadProfile(userId: string, setProfile: (p: Profile | null) => void) {
     .then(({ data, error }) => {
       if (error) {
         debugLog({ level: "error", source: "auth", message: "Profile load failed", details: error })
-        // Don't wipe existing profile on network error — keep what we have
-      } else if (data) {
-        debugLog({ source: "auth", message: "Profile loaded", details: { userId } })
-        setProfile(data)
-      } else {
-        // No profile found — only log, don't clear the existing store value.
-        // This prevents wiping the profile set during onboarding (which happens
-        // before the first token-refresh fires onAuthStateChange).
-        debugLog({ source: "auth", message: "Profile missing — skipping set(null) to preserve onboarding state", details: { userId } })
       }
+      debugLog({ source: "auth", message: data ? "Profile loaded" : "Profile missing", details: { userId } })
+      setProfile(data ?? null)
     })
     .catch((error) => {
       debugLog({ level: "error", source: "auth", message: "Profile load crashed or was blocked", details: error })
-      // Keep existing profile on crash too
+      setProfile(null)
     })
 }
 
@@ -338,13 +331,16 @@ export default function App() {
         if (ready) {
           setSpacesReady(false)
         }
-        // Only reload profile if the user actually changed (sign-in, not token refresh).
-        // This prevents wiping a profile that was just set (e.g. during onboarding)
-        // when Supabase fires onAuthStateChange for a routine session refresh.
-        if (userChanged) {
+        // Only reload profile if the user actually changed AND no profile exists yet.
+        // This covers: (1) first sign-in with no profile yet → load it
+        //               (2) same-user token refresh → skip it to avoid wiping a profile
+        //                  that was just set (e.g. during onboarding)
+        //               (3) same-user but no profile yet → load it
+        const existingProfile = useAuthStore.getState().profile
+        if (userChanged || !existingProfile) {
           loadProfile(session.user.id, setProfile)
         } else {
-          debugLog({ source: "auth", message: "Skipping profile reload — same user, likely session refresh" })
+          debugLog({ source: "auth", message: "Skipping profile load — same user with existing profile" })
         }
       } else {
         setProfile(null)
@@ -543,9 +539,9 @@ export default function App() {
   }
 
   if (!user) return <AuthPage />
+  if (!profile) return <OnboardingPage />
   if (!currentSpace) return <RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={false} />
   if (joinOrCreateModalOpen) return <RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={true} />
-  if (!profile) return <OnboardingPage />
   return (
     <>
       <DashboardPage />

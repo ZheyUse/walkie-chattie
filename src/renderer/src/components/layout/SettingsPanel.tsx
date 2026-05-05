@@ -193,7 +193,7 @@ export default function SettingsPanel() {
 
           {/* Space ID */}
           <div className="flex items-center gap-1 mt-1">
-            <span className="font-body text-[10px]" style={{ color: 'rgba(90,100,120,0.5)' }}>{currentSpace?.id?.slice(0, 8)}</span>
+            <span className="font-body text-[10px]" style={{ color: 'rgba(90,100,120,0.5)' }}>{currentSpace?.id}</span>
             <button
               onClick={() => { navigator.clipboard.writeText(currentSpace?.id || ''); setCopiedId(true); toast('Space ID copied') }}
               className="flex items-center transition-colors"

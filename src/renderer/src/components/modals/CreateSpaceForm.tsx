@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase"
 import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore } from "../../stores/space.store"
 import { generateId } from "../../lib/id-gen"
+import { debugLog } from "../../lib/debug"
 
 const AVATAR_EMOJIS = [
   "🚀", "🛸", "🌌", "⭐", "🌙", "🪐",
@@ -27,18 +28,35 @@ export default function CreateSpaceForm() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !profile || !name.trim()) return
+    debugLog({ source: "create-space", message: "Create button clicked", details: { hasUser: Boolean(user), hasProfile: Boolean(profile), name: name.trim() } })
+    if (!user || !profile || !name.trim()) {
+      debugLog({ level: "error", source: "create-space", message: "Create aborted: user, profile, or name missing", details: { hasUser: Boolean(user), hasProfile: Boolean(profile), nameLength: name.trim().length } })
+      return
+    }
     setLoading(true)
     setError("")
 
     const emoji = AVATAR_EMOJIS[emojiIdx]
     const space = { id: spaceId, name: name.trim(), avatar_emoji: emoji, owner_id: user.id, context_window_limit: 12000, context_window_used: 0 }
+    debugLog({ source: "create-space", message: "Inserting space", details: { spaceId, name: name.trim(), emoji } })
     const { error: spaceErr } = await supabase.from("spaces").insert(space)
-    if (spaceErr) { setError(spaceErr.message || "Failed to create Space."); setLoading(false); return }
+    if (spaceErr) {
+      debugLog({ level: "error", source: "create-space", message: "Failed to create space", details: spaceErr })
+      setError(spaceErr.message || "Failed to create Space.")
+      setLoading(false)
+      return
+    }
 
+    debugLog({ source: "create-space", message: "Space created, inserting member record", details: { spaceId } })
     const { error: memberErr } = await supabase.from("space_members").insert({ space_id: spaceId, user_id: user.id, role: "admin" })
-    if (memberErr) { setError(memberErr.message); setLoading(false); return }
+    if (memberErr) {
+      debugLog({ level: "error", source: "create-space", message: "Failed to insert space member", details: memberErr })
+      setError(memberErr.message)
+      setLoading(false)
+      return
+    }
 
+    debugLog({ source: "create-space", message: "Create space success", details: { spaceId, spaceName: name.trim() } })
     setSpace(space)
     setJoinOrCreateModalOpen(false)
 
