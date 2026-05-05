@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugLog } from '../lib/debug'
+import { assetPath } from '../lib/assets'
 
 export default function AuthPage() {
   const [loading, setLoading] = useState(false)
@@ -275,7 +276,7 @@ export default function AuthPage() {
             }}
           >
             <img
-              src="/resources/icons/icon-128.png"
+              src={assetPath("resources/icons/icon-128.png")}
               alt="Pulsar"
               className="w-full h-full object-contain"
             />

@@ -13,6 +13,7 @@ let oauthSucceeded = false
 let tray: Tray | null = null
 let isQuitting = false
 let pendingOAuthUrl: string | null = null
+let startInBackground = false
 
 type DebugLevel = "info" | "warn" | "error"
 
@@ -124,15 +125,21 @@ function openDebugWindow() {
   debugWindow.loadURL(getWindowUrl("/debug"))
 }
 
+function getIconPath(size: 32 | 256 | "ico" = "ico") {
+  const filename = size === "ico" ? "icon.ico" : `icon-${size}.png`
+  return isDev
+    ? join(__dirname, "../../resources/icons", filename)
+    : join(process.resourcesPath, "resources/icons", filename)
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
 function createWindow() {
-  let iconPath = isDev
-    ? join(__dirname, '../../resources/icons/icon.ico')
-    : join(process.resourcesPath, 'resources/icons/icon.ico')
-  if (!iconPath || !iconPath.endsWith('.ico')) {
-    iconPath = isDev
-      ? join(__dirname, '../../resources/icons/icon-256.png')
-      : join(process.resourcesPath, 'resources/icons/icon-256.png')
-  }
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -141,7 +148,7 @@ function createWindow() {
     show: false,
     backgroundColor: "#0e1117",
     autoHideMenuBar: true,
-    icon: iconPath,
+    icon: getIconPath("ico"),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -151,11 +158,13 @@ function createWindow() {
   })
 
   mainWindow.on("ready-to-show", () => {
-    if (!pendingOAuthUrl) mainWindow?.hide()
     if (pendingOAuthUrl) {
       finishOAuth(pendingOAuthUrl)
       pendingOAuthUrl = null
+      return
     }
+    if (startInBackground) mainWindow?.hide()
+    else showMainWindow()
   })
 
   mainWindow.on("close", (event) => {
@@ -178,20 +187,18 @@ function createWindow() {
 
 function createTray() {
   // In dev the path is relative to project root; in prod it's inside asar
-  let iconPath = isDev
-    ? join(__dirname, '../../resources/icons/icon-32.png')
-    : join(process.resourcesPath, 'resources/icons/icon-32.png')
+  const iconPath = getIconPath(32)
   const icon = nativeImage.createFromPath(iconPath)
   tray = new Tray(icon)
   tray.setToolTip("Astra")
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Open Astra", click: () => mainWindow?.show() },
+    { label: "Open Astra", click: () => showMainWindow() },
     { type: "separator" },
     { label: "Quit", click: () => { isQuitting = true; app.quit() } },
   ]))
   tray.on("click", () => {
     if (mainWindow?.isVisible()) mainWindow.hide()
-    else mainWindow?.show()
+    else showMainWindow()
   })
 }
 
@@ -207,8 +214,7 @@ function finishOAuth(redirectUrl: string) {
   oauthSucceeded = true
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("oauth-callback", redirectUrl)
-    mainWindow.show()
-    mainWindow.focus()
+    showMainWindow()
   } else {
     pendingOAuthUrl = redirectUrl
   }
@@ -227,6 +233,9 @@ process.on("unhandledRejection", (reason) => {
 })
 
 app.whenReady().then(() => {
+  const loginSettings = app.getLoginItemSettings()
+  startInBackground = !isDev && (loginSettings.wasOpenedAtLogin || loginSettings.wasOpenedAsHidden)
+
   if (process.defaultApp && process.argv.length >= 2) {
     app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL, process.execPath, [resolve(process.argv[1])])
   } else {
@@ -243,7 +252,8 @@ app.whenReady().then(() => {
     const url = commandLine.find(arg => arg.startsWith(DEEP_LINK_PROTOCOL + "://"))
     if (url) {
       finishOAuth(url)
-      if (mainWindow?.isMinimized()) mainWindow.restore()
+    } else {
+      showMainWindow()
     }
   })
 
@@ -339,75 +349,11 @@ app.whenReady().then(() => {
     shell.openExternal(url)
   })
 
-  // IPC: open OAuth URL in a managed BrowserWindow so we can close it automatically
-  ipcMain.on("open-oauth-browser", (event, url: string) => {
-    addDebugLog("info", "main-window", "Opening OAuth in managed BrowserWindow", { url })
+  // IPC: open OAuth URL in the system browser so Google sign-in works in packaged builds.
+  ipcMain.on("open-oauth-browser", (_, url: string) => {
+    addDebugLog("info", "main-window", "Opening OAuth in system browser", { url })
     oauthSucceeded = false
-
-    // Close any existing oauth window first
-    if (oauthWindow && !oauthWindow.isDestroyed()) {
-      oauthWindow.close()
-      oauthWindow = null
-    }
-
-    oauthWindow = new BrowserWindow({
-      width: 480,
-      height: 680,
-      resizable: false,
-      minimizable: false,
-      maximizable: false,
-      fullscreenable: false,
-      title: "Sign in to Astra",
-      backgroundColor: "#0a0e1a",
-      autoHideMenuBar: true,
-      show: true,
-      webPreferences: {
-        preload: join(__dirname, "../preload/index.js"),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false,
-      },
-    })
-
-    // Intercept the redirect callback URL and close the window automatically
-    oauthWindow.webContents.on("will-navigate", (_, redirectUrl) => {
-      if (redirectUrl.startsWith("astra://login-callback")) {
-        addDebugLog("info", "main-window", "OAuth redirect intercepted, closing window")
-        finishOAuth(redirectUrl)
-      }
-    })
-
-    oauthWindow.webContents.on("will-redirect", (_, redirectUrl) => {
-      if (redirectUrl.startsWith("astra://login-callback")) {
-        addDebugLog("info", "main-window", "OAuth redirect intercepted during redirect, closing window")
-        finishOAuth(redirectUrl)
-      }
-    })
-
-    // Also handle the case where Supabase immediately redirects to the custom protocol
-    oauthWindow.webContents.setWindowOpenHandler(({ url: openedUrl }) => {
-      if (openedUrl.startsWith("astra://")) {
-        finishOAuth(openedUrl)
-      } else {
-        shell.openExternal(openedUrl)
-      }
-      return { action: "deny" }
-    })
-
-    oauthWindow.on("closed", () => {
-      oauthWindow = null
-    })
-
-    // Only signal "user cancelled" if they closed the window manually (not via OAuth success)
-    oauthWindow.on("close", () => {
-      if (!oauthSucceeded) {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("oauth-closed")
-        }
-      }
-    })
-
-    oauthWindow.loadURL(url)
+    shell.openExternal(url)
   })
 
   ipcMain.on("close-oauth-browser", () => {
@@ -439,16 +385,12 @@ app.whenReady().then(() => {
     notification.on("click", () => {
       if (mainWindow) {
         if (mainWindow.isMinimized()) mainWindow.restore()
-        mainWindow.show()
-        mainWindow.focus()
+        showMainWindow()
         mainWindow.webContents.send("notification-clicked", data.tag || "")
       }
     })
     notification.show()
   })
-
-  // IPC: check if window is focused (used by renderer to decide in-app vs OS notification)
-  ipcMain.handle("is-window-focused", () => mainWindow?.isFocused() ?? false)
 
   createWindow()
   createTray()
@@ -468,7 +410,7 @@ app.whenReady().then(() => {
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
-    else mainWindow?.show()
+    else showMainWindow()
   })
 })
 

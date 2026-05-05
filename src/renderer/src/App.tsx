@@ -15,6 +15,7 @@ import TapPopup from "./components/popups/TapPopup"
 import BroadcastPopup from "./components/popups/BroadcastPopup"
 import { debugLog } from "./lib/debug"
 import { initTypingChannel, teardownTypingChannel } from "./lib/typing-channel"
+import { assetPath } from "./lib/assets"
 
 function withTimeout<T>(promise: Promise<T>, label: string, ms = 8000): Promise<T> {
   let timeoutId: number | undefined
@@ -225,7 +226,7 @@ export default function App() {
     debugLog({ source: "app", message: "App bootstrapped", details: { hash: window.location.hash } })
     if (isBrowserOAuthRelay) {
       debugLog({ source: "auth", message: "Browser OAuth relay detected" })
-      window.location.href = `walkie-chattie://login-callback${window.location.hash}`
+      window.location.href = `astra://login-callback${window.location.hash}`
       setReady(true)
       return
     }
@@ -520,7 +521,7 @@ export default function App() {
   if (isBrowserOAuthRelay) {
     return <div className="h-screen bg-bg-deep flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <img src="/resources/icons/icon.svg" alt="Astra" className="w-16 h-16" />
+        <img src={assetPath("resources/icons/icon.svg")} alt="Astra" className="w-16 h-16" />
         <div className="text-accent font-title text-xl animate-pulse">Returning to Astra...</div>
       </div>
     </div>

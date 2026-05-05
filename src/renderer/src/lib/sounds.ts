@@ -1,6 +1,7 @@
 import { debugLog } from './debug'
+import { assetPath } from './assets'
 
-const BASE = '/resources/sound-effects'
+const BASE = assetPath('resources/sound-effects')
 
 const cache = new Map<string, HTMLAudioElement>()
 

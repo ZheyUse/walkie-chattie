@@ -7,6 +7,7 @@ import Modal from "../ui/Modal"
 import CreateSpaceForm from "./CreateSpaceForm"
 import { debugLog } from "../../lib/debug"
 import { spaceAvatarPath } from "../../lib/spaceAvatars"
+import { assetPath } from "../../lib/assets"
 
 interface Props { onClose: () => void; closable?: boolean }
 
@@ -23,7 +24,7 @@ export default function RoomModal({ onClose, closable = false }: Props) {
             border: '1px solid rgba(139,92,246,0.2)',
             boxShadow: '0 0 24px rgba(139,92,246,0.15)',
           }}>
-          <img src="/resources/icons/icon.svg" alt="Logo" className="w-10 h-10" />
+          <img src={assetPath("resources/icons/icon.svg")} alt="Logo" className="w-10 h-10" />
         </div>
         <h2 className="font-title font-bold text-lg tracking-wide" style={{ color: 'rgba(232,234,237,0.9)' }}>ASTRA</h2>
         <p className="text-sm font-body mt-1" style={{ color: 'rgba(90,100,120,0.6)' }}>Join a Space or create your own</p>

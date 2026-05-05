@@ -1,5 +1,6 @@
 import 'material-symbols'
 import { useSpaceStore } from "../../stores/space.store"
+import { assetPath } from "../../lib/assets"
 
 export default function TitleBar() {
   const currentSpace = useSpaceStore(s => s.currentSpace)
@@ -24,7 +25,7 @@ export default function TitleBar() {
         <div className="flex items-center justify-center w-7 h-7 rounded-lg overflow-hidden p-0"
           style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #1a9fff 100%)', WebkitAppRegion: 'no-drag' }}>
           <img
-            src="/resources/icons/icon-32.png"
+            src={assetPath("resources/icons/icon-32.png")}
             alt="Astra"
             className="w-full h-full object-contain"
           />

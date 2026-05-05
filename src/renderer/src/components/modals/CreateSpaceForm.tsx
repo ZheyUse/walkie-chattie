@@ -5,7 +5,7 @@ import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore } from "../../stores/space.store"
 import { generateId } from "../../lib/id-gen"
 import { debugLog } from "../../lib/debug"
-import { SPACE_AVATARS } from "../../lib/spaceAvatars"
+import { SPACE_AVATARS, spaceAvatarPath } from "../../lib/spaceAvatars"
 
 export default function CreateSpaceForm() {
   const user = useAuthStore(s => s.user)
@@ -99,7 +99,7 @@ export default function CreateSpaceForm() {
                 border: selectedIdx === i ? '1px solid rgba(139,92,246,0.5)' : '1px solid transparent',
               }}>
               <img
-                src={`/resources/space-avatar/${a.filename}`}
+                src={spaceAvatarPath(a.filename)}
                 alt={a.label}
                 className="w-6 h-6 object-contain"
               />

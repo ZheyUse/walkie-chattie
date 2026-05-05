@@ -1,6 +1,6 @@
 // All 20 space avatar SVG filenames. These are stored in
-// src/renderer/public/resources/space-avatar/ and served at
-// /resources/space-avatar/<filename.svg>
+// src/renderer/public/resources/space-avatar/ and served from Vite's base path.
+import { assetPath } from './assets'
 
 export const SPACE_AVATARS: { filename: string; label: string }[] = [
   { filename: 'avatar-rocket.svg',       label: 'Rocket' },
@@ -26,5 +26,5 @@ export const SPACE_AVATARS: { filename: string; label: string }[] = [
 ]
 
 export function spaceAvatarPath(filename: string) {
-  return `/resources/space-avatar/${filename}`
+  return assetPath(`resources/space-avatar/${filename}`)
 }

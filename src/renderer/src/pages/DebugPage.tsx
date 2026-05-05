@@ -1,6 +1,7 @@
 import 'material-symbols'
 import { useEffect, useMemo, useState } from "react"
 import type { DebugLogEntry } from "../lib/debug"
+import { assetPath } from "../lib/assets"
 
 function formatDetails(details: unknown) {
   if (details === undefined || details === null || details === "") return ""
@@ -123,7 +124,7 @@ export default function DebugPage() {
         <div className="flex items-center gap-2 text-xs text-text-lo">
           <span>App icon:</span>
           <img
-            src="/resources/icons/icon-64.png"
+            src={assetPath("resources/icons/icon-64.png")}
             alt="app icon"
             title="Click to preview full size"
             className="rounded cursor-pointer hover:ring-2 hover:ring-accent transition-all"
@@ -279,7 +280,7 @@ export default function DebugPage() {
             <div className="p-8 flex flex-col items-center gap-4">
               <p className="font-display text-sm text-text-md">App Icon — 1080×1080px</p>
               <img
-                src="/resources/icons/icon-512.png"
+                src={assetPath("resources/icons/icon-512.png")}
                 alt="App icon full preview"
                 className="rounded-xl"
                 style={{ width: 480, height: 480 }}
