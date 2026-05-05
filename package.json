@@ -50,20 +50,26 @@
   "build": {
     "appId": "com.astra.app",
     "productName": "Astra",
+    "asar": true,
     "directories": {
       "output": "out/make"
     },
     "files": [
-      "out/**/*"
-    ],
-    "asarUnpack": [
-      "resources/icons/*.png"
+      "out/**/*",
+      "!out/renderer/**/*.map",
+      "!out/main/**/*.map",
+      "!out/preload/**/*.map",
+      "!out/make/**/*"
     ],
     "extraResources": [
       {
-        "from": "resources/icons",
-        "to": "resources/icons"
+        "from": "resources",
+        "to": "resources"
       }
+    ],
+    "asarUnpack": [
+      "resources/icons/*.png",
+      "resources/sound-effects/**"
     ],
     "win": {
       "target": [

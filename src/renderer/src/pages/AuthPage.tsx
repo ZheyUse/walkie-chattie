@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugLog } from '../lib/debug'
 import { assetPath } from '../lib/assets'
+import { getOAuthRedirectUri } from '../lib/oauthRedirect'
 
 export default function AuthPage() {
   const [loading, setLoading] = useState(false)
@@ -57,7 +58,7 @@ export default function AuthPage() {
     debugLog({ source: "auth", message: "Google login clicked" })
     setLoading(true)
     setError(null)
-    const redirectTo = window.api ? window.api.getOAuthRedirectUri() : window.location.origin
+    const redirectTo = getOAuthRedirectUri()
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -293,7 +294,7 @@ export default function AuthPage() {
               </span>
             </div>
             <p className="text-sm font-body tracking-wide" style={{ color: 'rgba(160,170,184,0.5)' }}>
-              Your crew. Your frequencies.
+              Your crew. Your Space.
             </p>
           </div>
         </div>
