@@ -1,9 +1,9 @@
-{
-  "name": "walkie-chattie",
+﻿{
+  "name": "astra",
   "version": "1.0.0",
-  "description": "Walkie-Chattie â€” Steam-dark desktop chat app",
+  "description": "Astra — Steam-dark desktop chat app",
   "main": "./out/main/index.js",
-  "author": "Walkie-Chattie Team",
+  "author": "Codez",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
@@ -47,8 +47,8 @@
     "vite": "^7.3.2"
   },
   "build": {
-    "appId": "com.walkiechattie.app",
-    "productName": "Walkie-Chattie",
+    "appId": "com.astra.app",
+    "productName": "Astra",
     "directories": {
       "output": "out/make"
     },
