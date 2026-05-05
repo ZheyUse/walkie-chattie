@@ -10,3 +10,82 @@ Avatar Creation
 6. Fix shout and tap must be 1 at a time, wait for the current shout modal to finish showing before the next one
 
 7. wire the sound effects
+
+
+
+use this as loader
+
+import React from 'react';
+import styled from 'styled-components';
+
+const Loader = () => {
+  return (
+    <StyledWrapper>
+      <div className="loader">
+        <svg className="logo" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" width={150} height={150} viewBox="0 0 741.2 883.3" style={{enableBackground: 'new 0 0 741.2 883.3'}} xmlSpace="preserve">
+          <style type="text/css" dangerouslySetInnerHTML={{__html: "\n      .st0 { fill: currentColor; }\n    " }} />
+          <g>
+            <path className="st0" d="M215.3,391.9c14.7-0.8,29.5-1.2,44.1-2.4c18.1-1.5,36-3.8,52.6-11.9c22.6-11,35.5-29.3,38.1-54
+        c2.1-20,2.5-40.2,3.4-60.3c2.6-58.7,5.1-117.3,7.6-176c1.2-27.5,2.3-55,3.4-82.5c0-1.7,0.3-3.3,1-4.9c0.7,11.9,1.6,23.9,2.2,35.8
+        c2.4,48.5,4.7,97,7,145.5c2.2,44.6,4.2,89.3,6.7,133.9c2.2,39.6,25.7,64.6,67.7,70.9c19.5,2.9,39.3,3.5,59,5.1
+        c3.5,0.3,6.9,0.3,10.4,1.3c-11.4,0.5-22.9,0.9-34.3,1.6c-18.1,1.1-36.1,2.8-53.5,8.6c-29,9.6-44.9,30-48.3,60
+        c-1.7,15.2-2.5,30.5-3.1,45.8c-3.2,79.9-6.3,159.8-9.2,239.7c-1.7,44.3-3.1,88.6-4.6,132.9c0,0.9-0.5,1.7-1.2,2.1
+        c-0.1-1.9-0.3-3.8-0.4-5.7c-1.7-66.8-3-133.7-5-200.5c-1.9-64.1-4.3-128.1-6.7-192.1c-0.3-10.1-1.3-20.2-3.1-30.2
+        c-4.9-26.4-21.4-43-46.2-51.8c-17.3-6.1-35.4-7.5-53.4-8.7c-11.4-0.8-22.9-1.1-34.3-1.7L215.3,391.9z" />
+            <path className="st0" d="M433.3,299.4c9.7-1.7,19.4-3.7,29.2-4.9c34.8-4.1,69.6-9,104.5-11.7c42.4-3.3,84.9-3.5,126.8,6
+        c12.8,2.9,25.3,6.9,35.7,15.4c12,9.7,14.9,22.2,8,36.1c-5.5,11.2-14.3,19.7-23.8,27.4c-21.8,17.5-46.5,30-72.1,40.8
+        c-59.7,25.3-121.9,42.5-185.7,53.9c-12.1,2.2-24.4,2.9-36.6,4.3l-0.6-1.9c6.2-3,12.2-6.4,18.5-8.8c30.3-11.5,60.9-22.5,91.2-34.2
+        c37.1-14.3,73.7-29.6,107.3-51.1c9.5-6,18.4-13,26.5-20.8c17.5-17.2,14.4-33-8-43.1c-15.5-7-32.1-9.5-48.8-11.2
+        c-45.6-4.6-91.1-2-136.6,1.9c-11.7,1-23.5,2-35.2,3.1C433.5,300.1,433.4,299.8,433.3,299.4z" />
+            <path className="st0" d="M306.9,457c-12.8,3-25.6,6.5-38.5,8.8c-45.4,8.6-91.5,12.4-137.7,11.3c-30-0.8-59.8-3.4-88.3-13.3
+        c-10.1-3.5-19.6-8.3-28.4-14.4c-15.7-10.8-18.1-27.2-7.4-43.1c8.4-12.5,20.2-21.5,32.7-29.5c32.3-21,67.9-34.8,104.4-46.5
+        c52.2-16.7,105.7-28.5,159.6-38c2.7-0.5,5.5-0.9,8.2-1.3c0.7-0.1,1.4,0.2,1.8,0.8c-14.5,3.8-29,7.6-43.4,11.5
+        c-44.8,12.2-89.5,24.8-132.2,43.3c-19.2,8.3-37.9,17.6-54.1,31c-6.3,5.1-11.9,11-16.6,17.6c-9.4,14-6.3,27.7,7.6,37.5
+        c13.7,9.6,29.4,14.4,45.5,17.9c35.1,7.5,70.7,8.6,106.3,7.9c25.1-0.5,50.2-2.1,75.2-3.2c1.6-0.1,3.3,0,5,0L306.9,457z" />
+          </g>
+        </svg>
+      </div>
+    </StyledWrapper>
+  );
+}
+
+const StyledWrapper = styled.div`
+  /* SVG loader made by: csozi | Website: www.csozi.hu */
+
+  .text {
+    font-weight: bolder;
+    font-size: 17px;
+    color: black;
+    position: absolute;
+    translate: -50% 0px;
+    top: 20px;
+    left: 50%;
+    text-align: center;
+  }
+
+  .loader {
+    overflow: visible;
+    height: fit-content;
+    width: fit-content;
+    padding: 20px;
+    display: flex;
+  }
+
+  .logo path {
+    fill: none;
+    stroke: black;
+    stroke-width: 10px;            /* 👈 Makes it thick like an outline */
+    stroke-dasharray: 300px;
+    animation: load 15s infinite linear;
+  }
+
+  @keyframes load {
+    0% {
+      stroke-dashoffset: 0px;
+    }
+    100% {
+      stroke-dashoffset: 3000px;
+    }
+  }`;
+
+export default Loader;

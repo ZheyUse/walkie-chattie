@@ -94,6 +94,17 @@
   0%, 100% { opacity: 0.6; }
   50%       { opacity: 1; }
 }
+@keyframes logo-draw {
+  0%   { stroke-dashoffset: 300px; opacity: 0.4; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { stroke-dashoffset: 0px; opacity: 0.4; }
+}
+
+.animate-logo-draw {
+  animation: logo-draw 3s ease-in-out infinite;
+}
+
 @keyframes spin-icon {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }

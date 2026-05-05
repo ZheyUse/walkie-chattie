@@ -8,6 +8,7 @@ import DashboardPage from "./pages/DashboardPage"
 import DebugPage from "./pages/DebugPage"
 import RoomModal from "./components/modals/RoomModal"
 import ToastContainer from "./components/ui/ToastContainer"
+import Loader from "./components/ui/Loader"
 import InAppNotification from "./components/ui/InAppNotification"
 import ShoutPopup from "./components/popups/ShoutPopup"
 import TapPopup from "./components/popups/TapPopup"
@@ -48,13 +49,15 @@ function loadProfile(userId: string, setProfile: (p: Profile | null) => void) {
     })
 }
 
-async function loadSpaceMembers(spaceId: string, setMembers: (m: Member[]) => void) {
+async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void) {
+  const spaceId = space.id
   debugLog({ source: "space", message: "Loading space members", details: { spaceId } })
   const { data: members, error: membersError } = await withTimeout(
     supabase
       .from("space_members")
       .select("user_id, role, joined_at")
-      .eq("space_id", spaceId),
+      .eq("space_id", spaceId)
+      .eq("blacklisted", false),
       
     "Space members load"
   )
@@ -84,6 +87,7 @@ async function loadSpaceMembers(spaceId: string, setMembers: (m: Member[]) => vo
 
   setMembers(members.map((m) => ({
     ...m,
+    role: m.role === "admin" || m.user_id === space.owner_id ? "admin" : "member",
     nickname: profiles?.find((p) => p.id === m.user_id)?.nickname || "?",
     avatar_color: profiles?.find((p) => p.id === m.user_id)?.avatar_color || "#888",
   })))
@@ -103,15 +107,15 @@ async function loadExistingSpace(
         .select("space_id")
         .eq("user_id", userId)
         .eq("blacklisted", false)
-        .order("joined_at", { ascending: true })
     ),
     "Existing space membership load"
-  ) as { data: unknown[] | null; error: unknown }
+  ) as { data: { space_id: string }[] | null; error: unknown }
 
   if (membershipsError) {
     debugLog({ level: "error", source: "space", message: "Existing space membership load failed", details: membershipsError })
     setSpace(null)
     setMembers([])
+    setSpaces([])
     return
   }
 
@@ -123,41 +127,38 @@ async function loadExistingSpace(
     return
   }
 
-  const mostRecentSpaceId = (memberships[0] as { space_id: string }).space_id
+  const spaceIds = [...new Set(memberships.map((m) => m.space_id))]
+  const { data: allSpaces, error: spacesError } = await withTimeout(
+    Promise.resolve(supabase.from("spaces").select("*").in("id", spaceIds)),
+    "All spaces load"
+  ) as { data: Space[] | null; error: unknown }
 
-  const { data: space, error: spaceError } = await withTimeout(
-    Promise.resolve(
-      supabase
-        .from("spaces")
-        .select("*")
-        .eq("id", mostRecentSpaceId)
-        .maybeSingle()
-    ),
-    "Existing space load"
-  ) as { data: Space | null; error: unknown }
-
-  if (spaceError) {
-    debugLog({ level: "error", source: "space", message: "Existing space load failed", details: spaceError })
-  }
-
-  if (!space) {
-    debugLog({ level: "warn", source: "space", message: "Membership pointed to a missing space", details: mostRecentSpaceId })
+  if (spacesError) {
+    debugLog({ level: "error", source: "space", message: "All spaces load failed", details: spacesError })
     setSpace(null)
     setMembers([])
     setSpaces([])
     return
   }
 
-  const spaceIds = (memberships as { space_id: string }[]).map((m) => m.space_id)
-  const { data: allSpaces } = await withTimeout(
-    Promise.resolve(supabase.from("spaces").select("*").in("id", spaceIds)),
-    "All spaces load"
-  ) as { data: Space[] | null; error: unknown }
+  const space = allSpaces?.find((space) => space.id === memberships[0].space_id) ?? null
 
-  debugLog({ source: "space", message: "Existing space loaded", details: { spaceId: space.id, name: space.name } })
+  if (!space) {
+    debugLog({ level: "warn", source: "space", message: "Membership pointed to missing spaces", details: { userId, spaceIds } })
+    setSpace(null)
+    setMembers([])
+    setSpaces([])
+    return
+  }
+
+  debugLog({
+    source: "space",
+    message: "Existing space loaded",
+    details: { spaceId: space.id, name: space.name },
+  })
   setSpace(space)
   setSpaces(allSpaces ?? [])
-  await loadSpaceMembers(space.id, setMembers)
+  await loadSpaceMembers(space, setMembers)
 }
 
 function getPopupType(): "shout" | "tap" | "broadcast" | null {
@@ -394,6 +395,11 @@ export default function App() {
     }
   }, [ready, user?.id])
 
+  useEffect(() => {
+    if (!ready || !user || !window.api) return
+    window.api.closeOAuthBrowser()
+  }, [ready, user?.id])
+
   // Real-time presence + typing: track online users and who is currently typing
   useEffect(() => {
     if (!currentSpace || !user) return
@@ -527,7 +533,8 @@ export default function App() {
 
   if (isLoadingScreen) {
     return <div className="h-screen bg-bg-deep flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-6">
+        <Loader />
         <div className="text-accent font-display text-xl animate-pulse">Loading...</div>
         {loadingReasons[0] && (
           <div className="text-text-lo text-xs max-w-md text-center">

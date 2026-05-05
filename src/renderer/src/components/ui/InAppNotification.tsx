@@ -47,7 +47,7 @@ export default function InAppNotification() {
       const timer = setTimeout(() => remove(item.id), AUTO_DISMISS_MS)
       timersRef.current.set(item.id, timer)
     })
-    return unsub
+    return () => { unsub() }
   }, [remove])
 
   if (items.length === 0) return null

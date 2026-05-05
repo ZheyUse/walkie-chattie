@@ -34,11 +34,9 @@ stable
 as $$
   select exists (
     select 1
-    from public.space_members sm
-    where sm.space_id = target_space_id
-      and sm.user_id = target_user_id
-      and sm.role = 'admin'
-      and coalesce(sm.blacklisted, false) = false
+    from public.spaces s
+    where s.id = target_space_id
+      and s.owner_id = target_user_id
   );
 $$;
 
@@ -94,16 +92,41 @@ create policy "Users can insert self" on public.space_members
   with check (
     user_id = auth.uid()
     and coalesce(blacklisted, false) = false
+    and (
+      role = 'member'
+      or (
+        role = 'admin'
+        and exists (
+          select 1
+          from public.spaces s
+          where s.id = space_id
+            and s.owner_id = auth.uid()
+        )
+      )
+    )
   );
 
 create policy "Users can delete self" on public.space_members
   for delete
-  using (user_id = auth.uid());
+  using (
+    user_id = auth.uid()
+    and not public.is_space_admin(space_id, auth.uid())
+  );
+
+create policy "Owners can delete members" on public.space_members
+  for delete
+  using (
+    public.is_space_admin(space_id, auth.uid())
+    and user_id <> auth.uid()
+  );
 
 create policy "Admins can update members" on public.space_members
   for update
   using (public.is_space_admin(space_id, auth.uid()))
-  with check (public.is_space_admin(space_id, auth.uid()));
+  with check (
+    public.is_space_admin(space_id, auth.uid())
+    and user_id <> auth.uid()
+  );
 
 create policy "Members can read space messages" on public.messages
   for select

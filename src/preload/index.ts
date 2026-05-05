@@ -57,6 +57,7 @@ const api = {
 
   // OAuth helpers — open in a managed BrowserWindow so the tab auto-closes after auth
   openSystemBrowser: (url: string) => ipcRenderer.send('open-oauth-browser', url),
+  closeOAuthBrowser: () => ipcRenderer.send('close-oauth-browser'),
 
   onOAuthCallback: (callback: (url: string) => void) =>
     ipcRenderer.on('oauth-callback', (_, url) => callback(url)),

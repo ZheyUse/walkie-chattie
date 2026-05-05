@@ -17,6 +17,7 @@ export default function AuthPage() {
       loadingRef.current = true
       setLoading(true)
       setErrorRef.current(null)
+      let shouldCloseOAuthWindow = false
       try {
         const callbackUrl = new URL(url)
         const hashParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''))
@@ -27,15 +28,23 @@ export default function AuthPage() {
           debugLog({ source: "auth", message: "Exchanging OAuth code for session" })
           const { error: err } = await supabase.auth.exchangeCodeForSession(code)
           if (err) { debugLog({ level: "error", source: "auth", message: "OAuth code exchange failed", details: err }); setErrorRef.current(err.message) }
+          else shouldCloseOAuthWindow = true
         } else if (accessToken && refreshToken) {
           debugLog({ source: "auth", message: "Setting OAuth token session" })
           const { error: err } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
           if (err) { debugLog({ level: "error", source: "auth", message: "OAuth token session failed", details: err }); setErrorRef.current(err.message) }
+          else shouldCloseOAuthWindow = true
         } else { debugLog({ level: "error", source: "auth", message: "OAuth callback had no usable session data" }); setErrorRef.current('No auth session was returned') }
       } catch (err) {
         debugLog({ level: "error", source: "auth", message: "OAuth callback parsing failed", details: err })
         setErrorRef.current(err instanceof Error ? err.message : 'Invalid auth callback')
-      } finally { loadingRef.current = false; setLoading(false) }
+      } finally {
+        loadingRef.current = false
+        setLoading(false)
+        if (shouldCloseOAuthWindow) {
+          window.api.closeOAuthBrowser()
+        }
+      }
     }
     const onClose = () => { if (loadingRef.current) { debugLog({ level: "warn", source: "auth", message: "OAuth flow cancelled while loading" }); setErrorRef.current('Auth cancelled') } }
     window.api.onOAuthCallback(onCallback)
@@ -47,10 +56,16 @@ export default function AuthPage() {
     debugLog({ source: "auth", message: "Google login clicked" })
     setLoading(true)
     setError(null)
-    const redirectTo = window.location.protocol.startsWith('http') ? window.location.origin : window.api.getOAuthRedirectUri()
+    const redirectTo = window.api ? window.api.getOAuthRedirectUri() : window.location.origin
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo, skipBrowserRedirect: true }
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+        queryParams: {
+          prompt: 'select_account',
+        },
+      }
     })
     if (oauthError) { debugLog({ level: "error", source: "auth", message: "Google OAuth URL request failed", details: oauthError }); setError(oauthError.message); setLoading(false); return }
     if (!data.url) { debugLog({ level: "error", source: "auth", message: "Google OAuth did not return a URL" }); setError('No auth URL returned'); setLoading(false); return }

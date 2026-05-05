@@ -8,8 +8,9 @@ export default function MembersPanel() {
   const { currentSpace, members, onlineUsers, setMembers } = useSpaceStore()
 
   const isAdmin = currentSpace?.owner_id === profile?.id
-  const onlineMembers = members.filter(m => onlineUsers.has(m.user_id))
-  const offlineMembers = members.filter(m => !onlineUsers.has(m.user_id))
+  const visibleMembers = members  // remove the filter entirely
+  const onlineMembers = visibleMembers.filter(m => onlineUsers.has(m.user_id))
+  const offlineMembers = visibleMembers.filter(m => !onlineUsers.has(m.user_id))
 
   const handleBlacklist = async (member: Member) => {
     if (!currentSpace) return
@@ -29,6 +30,18 @@ export default function MembersPanel() {
         borderLeft: '1px solid rgba(139,92,246,0.1)',
       }}
     >
+      {isAdmin && (
+        <div
+          className="px-3 py-2 text-[10px] font-body uppercase tracking-wider flex items-center gap-1.5"
+          style={{ borderBottom: '1px solid rgba(139,92,246,0.06)', color: 'rgba(139,92,246,0.75)' }}
+        >
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: 'rgba(139,92,246,0.9)', boxShadow: '0 0 6px rgba(139,92,246,0.6)' }}
+          />
+          You own this space
+        </div>
+      )}
       {onlineMembers.length > 0 && (
         <>
           <div

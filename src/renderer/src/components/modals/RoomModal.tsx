@@ -15,19 +15,14 @@ export default function RoomModal({ onClose, closable = false }: Props) {
   return (
     <Modal open onClose={onClose} closable={closable} size="lg">
       {/* Header */}
-      <div className="text-center mb-6">
-        <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+      <div className="text-center mb-6 pt-4">
+        <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(26,159,255,0.08) 100%)',
             border: '1px solid rgba(139,92,246,0.2)',
             boxShadow: '0 0 24px rgba(139,92,246,0.15)',
           }}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="2" fill="rgba(139,92,246,0.5)" stroke="rgba(139,92,246,0.4)" strokeWidth="1" />
-            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="rgba(139,92,246,0.3)" strokeWidth="1" />
-            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="rgba(139,92,246,0.3)" strokeWidth="1" transform="rotate(60 12 12)" />
-            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="rgba(139,92,246,0.3)" strokeWidth="1" transform="rotate(120 12 12)" />
-          </svg>
+          <img src="/resources/icons/icon.svg" alt="Logo" className="w-10 h-10" />
         </div>
         <h2 className="font-title font-bold text-lg tracking-wide" style={{ color: 'rgba(232,234,237,0.9)' }}>ASTRA</h2>
         <p className="text-sm font-body mt-1" style={{ color: 'rgba(90,100,120,0.6)' }}>Join a Space or create your own</p>
@@ -107,7 +102,7 @@ function JoinView({ onJoined }: JoinViewProps) {
     if (!previewSpace || !user) return
     setJoiningSpace(true)
 
-    const { error: memberErr } = await supabase.from("space_members").insert({ space_id: previewSpace.id, user_id: user.id })
+    const { error: memberErr } = await supabase.from("space_members").insert({ space_id: previewSpace.id, user_id: user.id, role: "member" })
     if (memberErr) {
       debugLog({ level: "error", source: "room-modal", message: "Failed to insert space member", details: memberErr })
       if (memberErr.message.includes("unique")) setPreviewSpace(null)
@@ -125,12 +120,13 @@ function JoinView({ onJoined }: JoinViewProps) {
       setSpaces(allSpaces ?? [])
     }
 
-    const { data: members } = await supabase.from("space_members").select("user_id, role, joined_at").eq("space_id", previewSpace.id)
+    const { data: members } = await supabase.from("space_members").select("user_id, role, joined_at").eq("space_id", previewSpace.id).eq("blacklisted", false)
     if (members) {
       const ids = members.map(m => m.user_id)
       const { data: profiles } = await supabase.from("profiles").select("id, nickname, avatar_color").in("id", ids)
       const enriched = members.map(m => ({
         ...m,
+        role: m.role === "admin" || m.user_id === previewSpace.owner_id ? "admin" : "member",
         nickname: profiles?.find(p => p.id === m.user_id)?.nickname || "?",
         avatar_color: profiles?.find(p => p.id === m.user_id)?.avatar_color || "#888",
       }))

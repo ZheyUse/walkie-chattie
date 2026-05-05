@@ -7,6 +7,8 @@ const DEEP_LINK_PROTOCOL = "walkie-chattie"
 
 let mainWindow: BrowserWindow | null = null
 let debugWindow: BrowserWindow | null = null
+let oauthWindow: BrowserWindow | null = null
+let oauthSucceeded = false
 let tray: Tray | null = null
 let isQuitting = false
 let pendingOAuthUrl: string | null = null
@@ -150,7 +152,7 @@ function createWindow() {
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show()
     if (pendingOAuthUrl && mainWindow) {
-      mainWindow.webContents.send("oauth-callback", pendingOAuthUrl)
+      finishOAuth(pendingOAuthUrl)
       pendingOAuthUrl = null
     }
   })
@@ -200,6 +202,21 @@ function popupUrl(data: object) {
   return "file://" + join(__dirname, "../renderer/index.html") + "#/popup/" + encoded
 }
 
+function finishOAuth(redirectUrl: string) {
+  oauthSucceeded = true
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("oauth-callback", redirectUrl)
+    mainWindow.show()
+    mainWindow.focus()
+  } else {
+    pendingOAuthUrl = redirectUrl
+  }
+
+  if (oauthWindow && !oauthWindow.isDestroyed()) {
+    oauthWindow.destroy()
+  }
+}
+
 process.on("uncaughtException", (error) => {
   addDebugLog("error", "main-process", "Uncaught exception", error)
 })
@@ -223,23 +240,15 @@ app.whenReady().then(() => {
   if (!gotTheLock) { app.quit(); return }
   app.on("second-instance", (_, commandLine) => {
     const url = commandLine.find(arg => arg.startsWith(DEEP_LINK_PROTOCOL + "://"))
-    if (url && mainWindow) {
-      mainWindow.webContents.send("oauth-callback", url)
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.show()
-      mainWindow.focus()
+    if (url) {
+      finishOAuth(url)
+      if (mainWindow?.isMinimized()) mainWindow.restore()
     }
   })
 
   app.on("open-url", (event, url) => {
     event.preventDefault()
-    if (mainWindow) {
-      mainWindow.webContents.send("oauth-callback", url)
-      mainWindow.show()
-      mainWindow.focus()
-    } else {
-      pendingOAuthUrl = url
-    }
+    finishOAuth(url)
   })
 
   // IPC: shout popup
@@ -330,9 +339,9 @@ app.whenReady().then(() => {
   })
 
   // IPC: open OAuth URL in a managed BrowserWindow so we can close it automatically
-  let oauthWindow: BrowserWindow | null = null
   ipcMain.on("open-oauth-browser", (event, url: string) => {
     addDebugLog("info", "main-window", "Opening OAuth in managed BrowserWindow", { url })
+    oauthSucceeded = false
 
     // Close any existing oauth window first
     if (oauthWindow && !oauthWindow.isDestroyed()) {
@@ -360,27 +369,24 @@ app.whenReady().then(() => {
     })
 
     // Intercept the redirect callback URL and close the window automatically
-    let oauthSuccess = false
     oauthWindow.webContents.on("will-navigate", (_, redirectUrl) => {
       if (redirectUrl.startsWith("walkie-chattie://login-callback")) {
-        oauthSuccess = true
         addDebugLog("info", "main-window", "OAuth redirect intercepted, closing window")
-        // Send the redirect URL to the app
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("oauth-callback", redirectUrl)
-        }
-        oauthWindow?.close()
+        finishOAuth(redirectUrl)
+      }
+    })
+
+    oauthWindow.webContents.on("will-redirect", (_, redirectUrl) => {
+      if (redirectUrl.startsWith("walkie-chattie://login-callback")) {
+        addDebugLog("info", "main-window", "OAuth redirect intercepted during redirect, closing window")
+        finishOAuth(redirectUrl)
       }
     })
 
     // Also handle the case where Supabase immediately redirects to the custom protocol
     oauthWindow.webContents.setWindowOpenHandler(({ url: openedUrl }) => {
       if (openedUrl.startsWith("walkie-chattie://")) {
-        oauthSuccess = true
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("oauth-callback", openedUrl)
-        }
-        oauthWindow?.close()
+        finishOAuth(openedUrl)
       } else {
         shell.openExternal(openedUrl)
       }
@@ -393,7 +399,7 @@ app.whenReady().then(() => {
 
     // Only signal "user cancelled" if they closed the window manually (not via OAuth success)
     oauthWindow.on("close", () => {
-      if (!oauthSuccess) {
+      if (!oauthSucceeded) {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send("oauth-closed")
         }
@@ -401,6 +407,14 @@ app.whenReady().then(() => {
     })
 
     oauthWindow.loadURL(url)
+  })
+
+  ipcMain.on("close-oauth-browser", () => {
+    if (oauthWindow && !oauthWindow.isDestroyed()) {
+      addDebugLog("info", "main-window", "Closing OAuth BrowserWindow by request")
+      oauthSucceeded = true
+      oauthWindow.destroy()
+    }
   })
 
   ipcMain.on("debug-open", () => openDebugWindow())

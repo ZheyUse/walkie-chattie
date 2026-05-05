@@ -131,7 +131,7 @@ export default function MessageList() {
           }
         }
 
-        const isOwn = msg.sender_id === profile?.id
+        const isOwn = msg.sender_id === profileIdRef.current
         if (!isOwn) {
           triggerNotification({
             title: msg.sender_nickname || 'New message',
@@ -142,34 +142,27 @@ export default function MessageList() {
           })
         }
 
-        // Read current store snapshot and compute next state synchronously
-        const prev = useChatStore.getState().messages
+        const currentMessages = useChatStore.getState().messages
+        if (currentMessages.some(function(m: Message) { return m.id === msg.id })) {
+          debugLog({ source: 'chat-realtime', message: 'Duplicate INSERT ignored', details: { msgId: msg.id } })
+          return
+        }
+
         let nextMessages: Message[]
 
         if (isOwn) {
-          const existingIdx = prev.findIndex(function(m: Message) {
-            return m.sender_id === msg.sender_id &&
-              m.space_id === msg.space_id &&
-              (m.tmpId || '').startsWith('temp-') &&
-              m.status === 'sending'
-          })
+          const existingIdx = currentMessages.findIndex(function(m: Message) { return m.sender_id === msg.sender_id && m.space_id === msg.space_id && (m.tmpId || '').startsWith('temp-') && m.status === 'sending' })
           if (existingIdx !== -1) {
-            debugLog({ source: 'chat-realtime', message: 'Replacing temp message with DB record', details: { tempId: prev[existingIdx].id, realId: msg.id } })
-            nextMessages = [...prev]
-            nextMessages[existingIdx] = { ...msg, status: 'sent', tmpId: prev[existingIdx].tmpId } as Message
-          } else if (prev.some(function(m: Message) { return m.id === msg.id })) {
-            debugLog({ source: 'chat-realtime', message: 'No temp found — appending from DB', details: { msgId: msg.id } })
-            nextMessages = [...prev, { ...msg, status: 'sent' } as Message]
+            debugLog({ source: 'chat-realtime', message: 'Replacing temp message with DB record', details: { tempId: currentMessages[existingIdx].id, realId: msg.id } })
+            nextMessages = [...currentMessages]
+            nextMessages[existingIdx] = { ...msg, status: 'sent', tmpId: currentMessages[existingIdx].tmpId } as Message
           } else {
-            nextMessages = prev
+            debugLog({ source: 'chat-realtime', message: 'Own message received (no temp found)', details: { msgId: msg.id } })
+            nextMessages = [...currentMessages, { ...msg, status: 'sent' } as Message]
           }
         } else {
-          if (prev.some(function(m: Message) { return m.id === msg.id })) {
-            nextMessages = prev
-          } else {
-            debugLog({ source: 'chat-realtime', message: 'Other member message received', details: { msgId: msg.id, sender: msg.sender_nickname } })
-            nextMessages = [...prev, msg]
-          }
+          debugLog({ source: 'chat-realtime', message: 'Other member message received', details: { msgId: msg.id, sender: msg.sender_nickname } })
+          nextMessages = [...currentMessages, msg]
         }
 
         setMessages(nextMessages)
@@ -225,7 +218,7 @@ export default function MessageList() {
             return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy }
           }
           if (m.sender_id === updated.sender_id &&
-              m.space_id === m.space_id &&
+              m.space_id === updated.space_id &&
               (m.tmpId || '').startsWith('temp-') &&
               m.status === 'sending') {
             return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy }

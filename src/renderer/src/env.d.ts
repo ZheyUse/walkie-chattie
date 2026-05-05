@@ -14,6 +14,7 @@ interface Window {
     onOAuthCallback: (callback: (url: string) => void) => void
     onOAuthClosed: (callback: () => void) => void
     getOAuthRedirectUri: () => string
+    closeOAuthBrowser: () => void
     openDebugWindow: () => void
     logDebug: (entry: {
       level: 'info' | 'warn' | 'error' | 'success'
