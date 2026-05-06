@@ -52,10 +52,10 @@ export default function DeleteSpaceModal({ spaceName, onConfirm, onDeleted, onCl
             <IconContainer icon="warning" danger />
             <p className="text-shout font-display font-extrabold text-sm tracking-wider uppercase mb-1">Destructive Action</p>
             <p className="text-text-hi font-display font-bold text-base mb-1">
-              Delete space
+              Nuke space
             </p>
             <p className="text-text-lo font-body text-sm mb-6">
-              <span className="text-shout font-semibold">{spaceName}</span> will be permanently deleted along with all messages and members.
+              <span className="text-shout font-semibold">{spaceName}</span> will be permanently nuked along with all messages and members.
             </p>
             <p className="text-text-lo text-xs mb-5 px-2" style={{ color: 'rgba(160,170,184,0.5)' }}>
               This action cannot be undone.
@@ -64,7 +64,7 @@ export default function DeleteSpaceModal({ spaceName, onConfirm, onDeleted, onCl
               <button onClick={onClose} className="flex-1 btn-primary text-sm py-2.5">Cancel</button>
               <button onClick={handleNuke} className="flex-1 text-sm py-2.5 font-display font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98] rounded-xl"
                 style={{ background: 'linear-gradient(135deg, #e8652a, #c54d1a)', boxShadow: '0 4px 16px rgba(232,101,42,0.3)' }}>
-                Delete Space
+                Nuke Space
               </button>
             </div>
           </>
@@ -73,7 +73,7 @@ export default function DeleteSpaceModal({ spaceName, onConfirm, onDeleted, onCl
         {phase === 'loading' && (
           <>
             <IconContainer icon="sync" danger />
-            <p className="text-shout font-display font-bold text-base mb-2">Deleting space...</p>
+            <p className="text-shout font-display font-bold text-base mb-2">Nuking space...</p>
             <p className="text-text-lo font-body text-xs mb-5" style={{ color: 'rgba(160,170,184,0.5)' }}>
               Removing members and all data
             </p>
@@ -100,7 +100,7 @@ export default function DeleteSpaceModal({ spaceName, onConfirm, onDeleted, onCl
               </span>
             </div>
             <p className="text-text-hi font-display font-bold text-base mb-1">{spaceName}</p>
-            <p className="text-success font-display font-extrabold text-lg mb-6">has been deleted</p>
+            <p className="text-success font-display font-extrabold text-lg mb-6">has been nuked</p>
             <button onClick={onDeleted} className="btn-primary text-sm py-2 px-8">Done</button>
           </>
         )}

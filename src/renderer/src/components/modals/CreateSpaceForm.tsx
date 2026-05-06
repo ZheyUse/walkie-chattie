@@ -86,38 +86,38 @@ export default function CreateSpaceForm() {
   return (
     <form onSubmit={handleCreate} className="flex flex-col gap-4">
       {error && (
-        <p className="text-xs px-3 py-2 rounded-lg" style={{ color: 'rgba(239,68,68,0.7)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>{error}</p>
+        <p className="text-xs px-3 py-2 rounded-lg" style={{ color: 'rgba(239,68,68,0.8)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</p>
       )}
 
       <div>
         <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Space Name</label>
         <input value={name} onChange={e => setName(e.target.value.slice(0, 30))}
           maxLength={30} placeholder="e.g. Mission Control"
-          className="input-field" />
-        <p className="text-[10px] mt-1 font-body" style={{ color: 'rgba(90,100,120,0.4)' }}>{name.length}/30</p>
+          className="w-full px-4 py-3 rounded-xl text-sm font-display tracking-wide transition-all duration-200 outline-none"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: 'rgba(232,234,237,0.9)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+          }} />
+        <p className="text-[10px] mt-1 font-body px-1" style={{ color: 'rgba(90,100,120,0.5)' }}>{name.length}/30</p>
       </div>
 
       <div>
-        <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Space ID</label>
-        <div className="px-3 py-2 rounded-xl font-display font-body text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(139,92,246,0.5)' }}>
-          {spaceId}
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs mb-1.5 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Avatar</label>
-        <div className="grid grid-cols-10 gap-1">
+        <label className="block text-xs mb-2 font-body" style={{ color: 'rgba(160,170,184,0.7)' }}>Avatar</label>
+        <div className="grid grid-cols-5 gap-2">
           {SPACE_AVATARS.map((a, i) => (
             <button key={i} type="button" onClick={() => setSelectedIdx(i)}
-              className="aspect-square rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-110"
+              className="aspect-square rounded-xl flex items-center justify-center transition-all duration-150 hover:scale-105 active:scale-95"
               style={{
                 background: selectedIdx === i ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)',
-                border: selectedIdx === i ? '1px solid rgba(139,92,246,0.5)' : '1px solid transparent',
+                border: selectedIdx === i ? '2px solid rgba(139,92,246,0.6)' : '1px solid rgba(255,255,255,0.08)',
+                boxShadow: selectedIdx === i ? '0 0 12px rgba(139,92,246,0.2)' : 'none',
               }}>
               <img
                 src={spaceAvatarPath(a.filename)}
                 alt={a.label}
-                className="w-6 h-6 object-contain"
+                className="w-10 h-10 object-contain"
               />
             </button>
           ))}
@@ -125,16 +125,22 @@ export default function CreateSpaceForm() {
       </div>
 
       <button type="submit" disabled={!name.trim() || loading}
-        className="w-full relative flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold font-display tracking-wide transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40"
+        className="w-full relative flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold font-display tracking-wide transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40"
         style={{
-          background: name.trim() && !loading ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)' : 'rgba(255,255,255,0.08)',
-          color: '#fff',
-          boxShadow: name.trim() && !loading ? '0 4px 16px rgba(139,92,246,0.35)' : 'none',
+          background: name.trim() && !loading ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.08)',
+          border: name.trim() && !loading ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.06)',
+          color: 'rgba(232,234,237,0.95)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
           cursor: !name.trim() || loading ? 'default' : 'pointer',
         }}>
         {loading ? (
-          <span className="material-symbols-outlined spin-icon" style={{ fontSize: '16px' }}>sync</span>
-        ) : null}
+          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+        ) : (
+          <span className="material-symbols-outlined text-base">add_circle</span>
+        )}
         {loading ? "Creating..." : "Create Space"}
       </button>
     </form>

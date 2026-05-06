@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "ui-ux-pro-max@ui-ux-pro-max-skill": true
-  },
   "permissions": {
     "allow": [
       "Bash(node -e \"const e = require\\('electron'\\); console.log\\('Electron version:', e.versions.electron\\)\")",
@@ -10,7 +7,13 @@
       "Bash(ls \"node_modules/electron/dist/resources/\")",
       "Bash(node -e ' *)",
       "Bash(node -e \"const plugin = require\\('electron-vite'\\); console.log\\(plugin.externalizeDepsPlugin ? 'has externalizeDepsPlugin' : 'no externalizeDepsPlugin'\\)\")",
-      "Bash(npx electron-vite *)"
+      "Bash(npx electron-vite *)",
+      "Bash(Get-Content src\\\\renderer\\\\src\\\\components\\\\modals\\\\RoomModal.tsx)",
+      "Bash(Select-String -Pattern \"^import\")",
+      "Bash(Select-Object -First 10)"
     ]
+  },
+  "enabledPlugins": {
+    "ui-ux-pro-max@ui-ux-pro-max-skill": true
   }
 }
