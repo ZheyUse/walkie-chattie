@@ -439,8 +439,13 @@ function setupAutoUpdater() {
   })
 
   autoUpdater.on("download-progress", (progress) => {
-    addDebugLog("info", "updater", "Download progress", { percent: progress.percent.toFixed(1) })
-    mainWindow?.webContents.send("update-status", { status: "downloading", percent: Math.round(progress.percent) })
+    addDebugLog("info", "updater", "Download progress", { percent: progress.percent.toFixed(1), transferred: progress.transferred, total: progress.total })
+    mainWindow?.webContents.send("update-status", {
+      status: "downloading",
+      percent: Math.round(progress.percent),
+      transferred: progress.transferred,
+      total: progress.total,
+    })
   })
 
   autoUpdater.on("update-downloaded", (info) => {

@@ -46,6 +46,6 @@ interface Window {
     }) => void) => () => void
     // Auto-updater
     restartToUpdate: () => void
-    onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number }) => void) => () => void
+    onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => void) => () => void
   }
 }
