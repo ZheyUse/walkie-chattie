@@ -144,7 +144,11 @@ export default function SettingsPanel() {
     if (remain && remain.length > 0) {
       const { data: next } = await supabase.from('spaces').select('*').eq('id', remain[0].space_id).maybeSingle()
       setSpace(next); setSpaces(next ? spaces.filter(s => s.id !== currentSpace.id) : [])
-    } else { setSpace(null); setMessages([]); setSpaces([]) }
+      localStorage.setItem('lastActiveSpaceId', next!.id)
+    } else {
+      setSpace(null); setMessages([]); setSpaces([])
+      localStorage.removeItem('lastActiveSpaceId')
+    }
     setShowNukeModal(false)
   }
 
@@ -166,6 +170,8 @@ export default function SettingsPanel() {
     if (remain && remain.length > 0) { const { data: next } = await supabase.from('spaces').select('*').eq('id', remain[0].space_id).maybeSingle(); nextSpace = next }
     setSpace(nextSpace); setMessages([])
     setSpaces(nextSpace ? spaces.filter(s => s.id !== currentSpace.id) : [])
+    if (nextSpace) localStorage.setItem('lastActiveSpaceId', nextSpace.id)
+    else localStorage.removeItem('lastActiveSpaceId')
   }
 
   return (

@@ -119,7 +119,7 @@ export default function SpacePanel() {
           hovered={hoveredSpaceId === space.id}
           onMouseEnter={() => setHoveredSpaceId(space.id)}
           onMouseLeave={() => setHoveredSpaceId(null)}
-          onClick={() => setSpace(space)}
+          onClick={() => { setSpace(space); localStorage.setItem('lastActiveSpaceId', space.id) }}
           tooltip={space.name}
         />
       ))}

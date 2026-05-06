@@ -52,7 +52,8 @@
     "productName": "Astra",
     "asar": true,
     "directories": {
-      "output": "out/make"
+      "output": "out/make/${version}",
+      "buildResources": "resources"
     },
     "files": [
       "out/**/*",

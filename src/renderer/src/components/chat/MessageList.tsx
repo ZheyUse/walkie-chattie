@@ -34,8 +34,12 @@ export default function MessageList() {
   // Scroll to bottom when messages first load (not on pagination prepends)
   useEffect(() => {
     if (messages.length === 0 || pageOffset > 0) return
+    isAtBottomRef.current = true
+    autoScrollRef.current = true
     requestAnimationFrame(() => {
-      listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
+      if (!listRef.current) return
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight })
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
     })
   }, [messages.length, pageOffset])
 

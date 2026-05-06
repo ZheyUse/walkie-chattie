@@ -294,7 +294,14 @@ async function loadExistingSpace(
     spaces: allSpaces,
   })
 
-  const space = allSpaces?.find((space) => space.id === memberships[0].space_id) ?? null
+  const lastActiveSpaceId = typeof window !== 'undefined' ? localStorage.getItem('lastActiveSpaceId') : null
+
+  // Prefer last active space; fall back to first membership
+  const preferredSpaceId = lastActiveSpaceId && allSpaces?.find((s) => s.id === lastActiveSpaceId)
+    ? lastActiveSpaceId
+    : memberships[0]?.space_id ?? null
+
+  const space = allSpaces?.find((s) => s.id === preferredSpaceId) ?? null
 
   if (!space) {
     debugLog({ level: "warn", source: "space", message: "Membership pointed to missing spaces", details: { userId, spaceIds } })

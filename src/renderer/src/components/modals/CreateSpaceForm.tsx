@@ -60,6 +60,7 @@ export default function CreateSpaceForm() {
       },
     })
     setSpace(space)
+    localStorage.setItem('lastActiveSpaceId', spaceId)
     setJoinOrCreateModalOpen(false)
 
     if (user) {

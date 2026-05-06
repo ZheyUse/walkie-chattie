@@ -150,6 +150,7 @@ function JoinView({ onJoined }: JoinViewProps) {
       },
     })
     setSpace(previewSpace)
+    localStorage.setItem('lastActiveSpaceId', previewSpace.id)
 
     const { data: memberships } = await supabase.from("space_members").select("space_id").eq("user_id", user.id).eq("blacklisted", false)
     if (memberships && memberships.length > 0) {
