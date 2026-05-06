@@ -15,6 +15,7 @@ export interface Member {
   user_id: string
   nickname: string
   avatar_color: string
+  picture?: string
   role: string
   joined_at: string
 }
@@ -35,6 +36,7 @@ interface SpaceState {
   setOnlineUsers: (u: Set<string>) => void
   setTypingUsers: (u: Set<string>) => void
   isMuted: () => boolean
+  getMemberPicture: (userId: string) => string | undefined
 }
 
 export const useSpaceStore = create<SpaceState>((set) => ({
@@ -122,7 +124,7 @@ export const useSpaceStore = create<SpaceState>((set) => ({
   setJoinOrCreateModalOpen: (open) => set({ joinOrCreateModalOpen: open }),
   setOnlineUsers: (u) => set({ onlineUsers: u }),
   setTypingUsers: (u) => set({ typingUsers: u }),
-  isMuted: () => {
+  isMuted: (): boolean => {
     const space = useSpaceStore.getState().currentSpace
     if (!space) return false
     const raw = localStorage.getItem(`space-muted:${space.id}`)
@@ -131,5 +133,9 @@ export const useSpaceStore = create<SpaceState>((set) => ({
     if (isNaN(expiry)) return false
     if (expiry === 0) return true // "until I change it"
     return expiry > Date.now()
+  },
+  getMemberPicture: (userId: string): string | undefined => {
+    const member = useSpaceStore.getState().members.find((m: Member) => m.user_id === userId)
+    return member?.picture
   },
 }))

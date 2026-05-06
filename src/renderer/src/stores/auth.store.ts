@@ -6,6 +6,7 @@ export interface Profile {
   id: string
   nickname: string
   avatar_color: string
+  picture?: string
   created_at: string
 }
 

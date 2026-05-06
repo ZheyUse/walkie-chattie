@@ -77,7 +77,7 @@ export default function OnboardingPage() {
     debugLog({ source: "onboarding", message: "Inserting profile", details: { nickname: nickname.trim(), color } })
     const { data, error: dbError } = await supabase
       .from('profiles')
-      .insert({ id: user.id, nickname: nickname.trim(), avatar_color: color })
+      .insert({ id: user.id, nickname: nickname.trim(), avatar_color: color, picture: user.user_metadata?.picture ?? null })
       .select()
       .single()
     if (dbError) {

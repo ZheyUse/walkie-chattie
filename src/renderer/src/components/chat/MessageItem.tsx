@@ -263,6 +263,9 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
   }
 
   const avatarColor = profile?.id === msg.sender_id ? (profile?.avatar_color || '#8b5cf6') : '#8b5cf6'
+  const avatarPicture = profile?.id === msg.sender_id
+    ? profile?.picture
+    : useSpaceStore.getState().getMemberPicture(msg.sender_id)
 
   return (
     <div
@@ -274,7 +277,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
       {/* Avatar */}
       <div className='flex-shrink-0' style={{ width: '40px', paddingTop: '2px' }}>
         {showAvatar ? (
-          <Avatar nickname={msg.sender_nickname} color={avatarColor} size='md' />
+          <Avatar nickname={msg.sender_nickname} picture={avatarPicture} color={avatarColor} size='md' />
         ) : (
           <div style={{ width: '40px' }} />
         )}

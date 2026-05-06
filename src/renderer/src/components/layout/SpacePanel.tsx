@@ -148,7 +148,7 @@ export default function SpacePanel() {
 
       {/* Profile footer */}
       <div ref={avatarRef} onClick={handleAvatarClick} className="cursor-pointer mt-1 rounded-xl p-0.5 transition-all duration-200 hover:bg-white/[0.06]">
-        <Avatar nickname={profile?.nickname || "?"} color={profile?.avatar_color || "#8b5cf6"} size="sm" />
+        <Avatar nickname={profile?.nickname || "?"} picture={profile?.picture} color={profile?.avatar_color || "#8b5cf6"} size="sm" />
       </div>
       {tooltipOpen && (
         <ProfileTooltip

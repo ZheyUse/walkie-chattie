@@ -45,7 +45,7 @@ export default function ProfileTooltip({ top, left, onClose, onRequestLogout, av
         {/* Avatar — overlaps banner */}
         <div className="px-3 -mt-6 mb-2 flex items-end justify-between">
           <div className="ring-4 ring-bg-panel rounded-full">
-            <Avatar nickname={profile?.nickname || '?'} color={profile?.avatar_color} size="md" />
+            <Avatar nickname={profile?.nickname || '?'} picture={profile?.picture} color={profile?.avatar_color} size="md" />
           </div>
         </div>
 

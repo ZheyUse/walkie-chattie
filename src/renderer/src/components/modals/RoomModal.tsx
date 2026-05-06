@@ -173,12 +173,13 @@ function JoinView({ onJoined }: JoinViewProps) {
     }
     if (members) {
       const ids = members.map(m => m.user_id)
-      const { data: profiles } = await supabase.from("profiles").select("id, nickname, avatar_color").in("id", ids)
+      const { data: profiles } = await supabase.from("profiles").select("id, nickname, avatar_color, picture").in("id", ids)
       const enriched = members.map(m => ({
         ...m,
         role: m.role === "admin" || m.user_id === previewSpace.owner_id ? "admin" : "member",
         nickname: profiles?.find(p => p.id === m.user_id)?.nickname || "?",
         avatar_color: profiles?.find(p => p.id === m.user_id)?.avatar_color || "#888",
+        picture: profiles?.find(p => p.id === m.user_id)?.picture,
       }))
       const mismatchMembers = enriched.filter(m => m.space_id !== previewSpace.id)
       debugLog({

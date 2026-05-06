@@ -149,12 +149,14 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
 
   const ids = members.map((m) => m.user_id)
   const { data: profiles, error: profilesError } = await withTimeout(
-    supabase
-      .from("profiles")
-      .select("id, nickname, avatar_color")
-      .in("id", ids),
+    Promise.resolve(
+      supabase
+        .from("profiles")
+        .select("id, nickname, avatar_color, picture")
+        .in("id", ids)
+    ),
     "Member profiles load"
-  )
+  ) as { data: { id: string; nickname: string; avatar_color: string; picture?: string }[] | null; error: unknown }
 
   if (profilesError) {
     debugLog({ level: "error", source: "space", message: "Member profiles load failed", details: profilesError })
@@ -165,6 +167,7 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
     role: m.role === "admin" || m.user_id === space.owner_id ? "admin" : "member",
     nickname: profiles?.find((p) => p.id === m.user_id)?.nickname || "?",
     avatar_color: profiles?.find((p) => p.id === m.user_id)?.avatar_color || "#888",
+    picture: profiles?.find((p) => p.id === m.user_id)?.picture,
   }))
   const mismatchMembers = enrichedMembers.filter((m) => m.space_id !== spaceId)
   const activeSpaceId = useSpaceStore.getState().currentSpace?.id ?? null

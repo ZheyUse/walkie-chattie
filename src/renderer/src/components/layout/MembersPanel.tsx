@@ -78,7 +78,7 @@ export default function MembersPanel() {
           </div>
           {onlineMembers.map(m => (
             <div key={m.user_id} className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-white/[0.03]">
-              <Avatar nickname={m.nickname} color={m.avatar_color} size="sm" showStatus online />
+              <Avatar nickname={m.nickname} picture={m.picture} color={m.avatar_color} size="sm" showStatus online />
               <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.8)' }}>{m.nickname}</span>
               {m.role === 'admin' && (
                 <span
@@ -111,7 +111,7 @@ export default function MembersPanel() {
           </div>
           {offlineMembers.map(m => (
             <div key={m.user_id} className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-white/[0.03]">
-              <Avatar nickname={m.nickname} color={m.avatar_color} size="sm" showStatus />
+              <Avatar nickname={m.nickname} picture={m.picture} color={m.avatar_color} size="sm" showStatus />
               <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.55)' }}>{m.nickname}</span>
               {m.role === 'admin' && (
                 <span
