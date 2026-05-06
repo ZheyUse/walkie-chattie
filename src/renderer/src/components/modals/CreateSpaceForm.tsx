@@ -51,7 +51,14 @@ export default function CreateSpaceForm() {
       return
     }
 
-    debugLog({ source: "create-space", message: "Create space success", details: { spaceId, spaceName: name.trim() } })
+    debugLog({
+      source: "space-members-debug",
+      message: "Create space success with owner membership",
+      details: {
+        space: { id: spaceId, name: name.trim(), owner_id: user.id },
+        space_members: [{ space_id: spaceId, user_id: user.id, role: "admin" }],
+      },
+    })
     setSpace(space)
     setJoinOrCreateModalOpen(false)
 
@@ -63,7 +70,14 @@ export default function CreateSpaceForm() {
         setSpaces(allSpaces ?? [])
       }
     }
-    setMembers([{ user_id: user.id, nickname: profile.nickname, avatar_color: profile.avatar_color, role: "admin", joined_at: new Date().toISOString() }])
+    setMembers([{
+      space_id: spaceId,
+      user_id: user.id,
+      nickname: profile.nickname,
+      avatar_color: profile.avatar_color,
+      role: "admin",
+      joined_at: new Date().toISOString(),
+    }])
     setLoading(false)
   }
 

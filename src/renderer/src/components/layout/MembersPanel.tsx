@@ -1,6 +1,8 @@
+import { useEffect } from "react"
 import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore, type Member } from "../../stores/space.store"
 import { supabase } from "../../lib/supabase"
+import { debugLog } from "../../lib/debug"
 import Avatar from "../ui/Avatar"
 
 export default function MembersPanel() {
@@ -8,7 +10,27 @@ export default function MembersPanel() {
   const { currentSpace, members, onlineUsers, setMembers } = useSpaceStore()
 
   const isAdmin = currentSpace?.owner_id === profile?.id
-  const visibleMembers = members  // remove the filter entirely
+  const wrongSpaceMembers = currentSpace ? members.filter(m => m.space_id !== currentSpace.id) : []
+  const wrongSpaceMembersKey = wrongSpaceMembers.map(m => `${m.space_id}:${m.user_id}`).join("|")
+  useEffect(() => {
+    if (!currentSpace || wrongSpaceMembers.length === 0) return
+    debugLog({
+      level: "error",
+      source: "space-members-debug",
+      message: "BUG DETECTED: MembersPanel received members from another space",
+      details: {
+        activeSpaceId: currentSpace.id,
+        wrongSpaceMembers: wrongSpaceMembers.map(m => ({
+          space_id: m.space_id,
+          user_id: m.user_id,
+          nickname: m.nickname,
+          role: m.role,
+        })),
+      },
+    })
+  }, [currentSpace?.id, wrongSpaceMembersKey])
+
+  const visibleMembers = currentSpace ? members.filter(m => m.space_id === currentSpace.id) : []
   const onlineMembers = visibleMembers.filter(m => onlineUsers.has(m.user_id))
   const offlineMembers = visibleMembers.filter(m => !onlineUsers.has(m.user_id))
 
@@ -19,7 +41,7 @@ export default function MembersPanel() {
       .update({ blacklisted: true })
       .eq('space_id', currentSpace.id)
       .eq('user_id', member.user_id)
-    setMembers(members.filter(m => m.user_id !== member.user_id))
+    setMembers(members.filter(m => !(m.space_id === currentSpace.id && m.user_id === member.user_id)))
   }
 
   return (

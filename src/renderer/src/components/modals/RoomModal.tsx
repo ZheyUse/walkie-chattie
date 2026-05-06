@@ -141,7 +141,14 @@ function JoinView({ onJoined }: JoinViewProps) {
       if (error) debugLog({ level: "warn", source: "room-modal", message: "Join system message failed", details: error })
     })
 
-    debugLog({ source: "room-modal", message: "Joined space successfully", details: { spaceId: previewSpace.id } })
+    debugLog({
+      source: "space-members-debug",
+      message: "Joined space successfully with membership row",
+      details: {
+        space: { id: previewSpace.id, name: previewSpace.name, owner_id: previewSpace.owner_id },
+        space_members: [{ space_id: previewSpace.id, user_id: user.id, role: "member" }],
+      },
+    })
     setSpace(previewSpace)
 
     const { data: memberships } = await supabase.from("space_members").select("space_id").eq("user_id", user.id).eq("blacklisted", false)
@@ -151,7 +158,19 @@ function JoinView({ onJoined }: JoinViewProps) {
       setSpaces(allSpaces ?? [])
     }
 
-    const { data: members } = await supabase.from("space_members").select("user_id, role, joined_at").eq("space_id", previewSpace.id).eq("blacklisted", false)
+    const { data: members, error: membersError } = await supabase
+      .from("space_members")
+      .select("space_id, user_id, role, joined_at")
+      .eq("space_id", previewSpace.id)
+      .eq("blacklisted", false)
+    if (membersError) {
+      debugLog({
+        level: "error",
+        source: "space-members-debug",
+        message: "Joined space member reload failed",
+        details: { requestedSpaceId: previewSpace.id, error: membersError },
+      })
+    }
     if (members) {
       const ids = members.map(m => m.user_id)
       const { data: profiles } = await supabase.from("profiles").select("id, nickname, avatar_color").in("id", ids)
@@ -161,7 +180,28 @@ function JoinView({ onJoined }: JoinViewProps) {
         nickname: profiles?.find(p => p.id === m.user_id)?.nickname || "?",
         avatar_color: profiles?.find(p => p.id === m.user_id)?.avatar_color || "#888",
       }))
-      setMembers(enriched)
+      const mismatchMembers = enriched.filter(m => m.space_id !== previewSpace.id)
+      debugLog({
+        level: mismatchMembers.length > 0 ? "error" : "info",
+        source: "space-members-debug",
+        message: mismatchMembers.length > 0
+          ? "BUG DETECTED: Joined space member reload returned another space"
+          : "Joined space members loaded",
+        details: {
+          requestedSpaceId: previewSpace.id,
+          rawMembers: members,
+          profiles,
+          enrichedMembers: enriched.map(m => ({
+            space_id: m.space_id,
+            user_id: m.user_id,
+            nickname: m.nickname,
+            role: m.role,
+            joined_at: m.joined_at,
+          })),
+          mismatchMembers,
+        },
+      })
+      setMembers(enriched.filter(m => m.space_id === previewSpace.id))
     }
 
     setJoiningSpace(false)

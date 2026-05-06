@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { debugLog } from '../lib/debug'
 
 export interface Space {
   id: string
@@ -10,6 +11,7 @@ export interface Space {
 }
 
 export interface Member {
+  space_id: string
   user_id: string
   nickname: string
   avatar_color: string
@@ -43,9 +45,79 @@ export const useSpaceStore = create<SpaceState>((set) => ({
   joinOrCreateModalOpen: false,
   onlineUsers: new Set(),
   typingUsers: new Set(),
-  setSpace: (s) => set({ currentSpace: s }),
+  setSpace: (s) => set((state) => {
+    const prevSpaceId = state.currentSpace?.id ?? null
+
+    if (!s) {
+      debugLog({
+        source: 'space-members-debug',
+        message: 'Space cleared; wiping members snapshot',
+        details: {
+          prevSpaceId,
+          nextSpaceId: null,
+          memberCount: state.members.length,
+          members: state.members.map((member) => ({
+            space_id: member.space_id,
+            user_id: member.user_id,
+            nickname: member.nickname,
+            role: member.role,
+          })),
+        },
+      })
+      return { currentSpace: null, members: [] }
+    }
+
+    if (state.currentSpace?.id === s.id) return { currentSpace: s }
+
+    const scopedMembers = state.members.filter((member) => member.space_id === s.id)
+
+    debugLog({
+      source: 'space-members-debug',
+      message: 'Space switched; members snapshot recorded',
+      details: {
+        prevSpaceId,
+        nextSpaceId: s.id,
+        memberCount: scopedMembers.length,
+        members: scopedMembers.map((member) => ({
+          space_id: member.space_id,
+          user_id: member.user_id,
+          nickname: member.nickname,
+          role: member.role,
+        })),
+      },
+    })
+
+    return {
+      currentSpace: s,
+      members: scopedMembers,
+    }
+  }),
   setSpaces: (s) => set({ spaces: s }),
-  setMembers: (m) => set({ members: m }),
+  setMembers: (m) => set((state) => {
+    if (!state.currentSpace) return { members: m }
+
+    const scopedMembers = m.filter((member) => member.space_id === state.currentSpace?.id)
+    const rejectedMembers = m.filter((member) => member.space_id !== state.currentSpace?.id)
+
+    if (rejectedMembers.length > 0) {
+      debugLog({
+        level: 'warn',
+        source: 'space-members-debug',
+        message: 'Store rejected members that do not belong to the active space',
+        details: {
+          activeSpaceId: state.currentSpace.id,
+          rejectedMembers: rejectedMembers.map((member) => ({
+            space_id: member.space_id,
+            user_id: member.user_id,
+            nickname: member.nickname,
+            role: member.role,
+          })),
+        },
+      })
+    }
+
+    return { members: scopedMembers }
+  }),
   toggleSettings: () => set((s) => ({ settingsPanelOpen: !s.settingsPanelOpen })),
   setJoinOrCreateModalOpen: (open) => set({ joinOrCreateModalOpen: open }),
   setOnlineUsers: (u) => set({ onlineUsers: u }),

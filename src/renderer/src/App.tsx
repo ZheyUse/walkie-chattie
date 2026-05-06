@@ -51,13 +51,64 @@ function loadProfile(userId: string, setProfile: (p: Profile | null) => void) {
     })
 }
 
+function logSpaceMemberSnapshot(message: string, details: {
+  requestedSpaceId?: string
+  activeSpaceId?: string | null
+  userId?: string
+  memberships?: unknown
+  spaces?: unknown
+  rawMembers?: unknown
+  profiles?: unknown
+  enrichedMembers?: Member[]
+  mismatchMembers?: Member[]
+  error?: unknown
+}) {
+  debugLog({
+    level: details.error || (details.mismatchMembers?.length ?? 0) > 0 ? "warn" : "info",
+    source: "space-members-debug",
+    message,
+    details: {
+      requestedSpaceId: details.requestedSpaceId,
+      activeSpaceId: details.activeSpaceId,
+      userId: details.userId,
+      memberships: details.memberships,
+      spaces: details.spaces,
+      rawMembers: details.rawMembers,
+      profiles: details.profiles,
+      enrichedMembers: details.enrichedMembers?.map((m) => ({
+        space_id: m.space_id,
+        user_id: m.user_id,
+        nickname: m.nickname,
+        role: m.role,
+        joined_at: m.joined_at,
+      })),
+      mismatchMembers: details.mismatchMembers?.map((m) => ({
+        space_id: m.space_id,
+        expected_space_id: details.requestedSpaceId,
+        user_id: m.user_id,
+        nickname: m.nickname,
+        role: m.role,
+      })),
+      error: details.error,
+    },
+  })
+}
+
 async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void) {
   const spaceId = space.id
   debugLog({ source: "space", message: "Loading space members", details: { spaceId } })
+  debugLog({
+    source: "space-members-debug",
+    message: "Space members load started",
+    details: {
+      requestedSpaceId: spaceId,
+      activeSpaceId: useSpaceStore.getState().currentSpace?.id ?? null,
+    },
+  })
   const { data: members, error: membersError } = await withTimeout(
     supabase
       .from("space_members")
-      .select("user_id, role, joined_at")
+      .select("space_id, user_id, role, joined_at")
       .eq("space_id", spaceId)
       .eq("blacklisted", false),
       
@@ -66,6 +117,12 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
 
   if (membersError) {
     debugLog({ level: "error", source: "space", message: "Space members load failed", details: membersError })
+    logSpaceMemberSnapshot("Space members query failed", {
+      requestedSpaceId: spaceId,
+      activeSpaceId: useSpaceStore.getState().currentSpace?.id ?? null,
+      rawMembers: members,
+      error: membersError,
+    })
     return
   }
 
@@ -73,6 +130,22 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
     debugLog({ level: "warn", source: "space", message: "Space members response was empty", details: { spaceId } })
     return
   }
+
+  debugLog({
+    source: "space-members-debug",
+    message: "Space members load returned rows",
+    details: {
+      requestedSpaceId: spaceId,
+      activeSpaceId: useSpaceStore.getState().currentSpace?.id ?? null,
+      rawMemberCount: members.length,
+      rawMembers: members.map((member) => ({
+        space_id: member.space_id,
+        user_id: member.user_id,
+        role: member.role,
+        joined_at: member.joined_at,
+      })),
+    },
+  })
 
   const ids = members.map((m) => m.user_id)
   const { data: profiles, error: profilesError } = await withTimeout(
@@ -87,12 +160,74 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
     debugLog({ level: "error", source: "space", message: "Member profiles load failed", details: profilesError })
   }
 
-  setMembers(members.map((m) => ({
+  const enrichedMembers = members.map((m) => ({
     ...m,
     role: m.role === "admin" || m.user_id === space.owner_id ? "admin" : "member",
     nickname: profiles?.find((p) => p.id === m.user_id)?.nickname || "?",
     avatar_color: profiles?.find((p) => p.id === m.user_id)?.avatar_color || "#888",
-  })))
+  }))
+  const mismatchMembers = enrichedMembers.filter((m) => m.space_id !== spaceId)
+  const activeSpaceId = useSpaceStore.getState().currentSpace?.id ?? null
+
+  debugLog({
+    source: "space-members-debug",
+    message: "Space members enriched",
+    details: {
+      requestedSpaceId: spaceId,
+      activeSpaceId,
+      enrichedCount: enrichedMembers.length,
+      mismatchCount: mismatchMembers.length,
+    },
+  })
+
+  logSpaceMemberSnapshot("Space members loaded", {
+    requestedSpaceId: spaceId,
+    activeSpaceId,
+    rawMembers: members,
+    profiles,
+    enrichedMembers,
+    mismatchMembers,
+  })
+
+  if (mismatchMembers.length > 0) {
+    debugLog({
+      level: "error",
+      source: "space-members-debug",
+      message: "BUG DETECTED: Supabase returned members from another space",
+      details: {
+        requestedSpaceId: spaceId,
+        mismatchMembers,
+      },
+    })
+  }
+
+  if (activeSpaceId && activeSpaceId !== spaceId) {
+    debugLog({
+      level: "warn",
+      source: "space-members-debug",
+      message: "Ignoring stale member load for inactive space",
+      details: { requestedSpaceId: spaceId, activeSpaceId },
+    })
+    return
+  }
+
+  const scopedMembers = enrichedMembers.filter((m) => m.space_id === spaceId)
+  debugLog({
+    source: "space-members-debug",
+    message: "Space members scoped for store",
+    details: {
+      requestedSpaceId: spaceId,
+      activeSpaceId,
+      scopedCount: scopedMembers.length,
+      scopedMembers: scopedMembers.map((member) => ({
+        space_id: member.space_id,
+        user_id: member.user_id,
+        nickname: member.nickname,
+        role: member.role,
+      })),
+    },
+  })
+  setMembers(scopedMembers)
 }
 
 async function loadExistingSpace(
@@ -106,12 +241,12 @@ async function loadExistingSpace(
     Promise.resolve(
       supabase
         .from("space_members")
-        .select("space_id")
+        .select("space_id, user_id, role, joined_at")
         .eq("user_id", userId)
         .eq("blacklisted", false)
     ),
     "Existing space membership load"
-  ) as { data: { space_id: string }[] | null; error: unknown }
+  ) as { data: Pick<Member, "space_id" | "user_id" | "role" | "joined_at">[] | null; error: unknown }
 
   if (membershipsError) {
     debugLog({ level: "error", source: "space", message: "Existing space membership load failed", details: membershipsError })
@@ -123,6 +258,7 @@ async function loadExistingSpace(
 
   if (!memberships || memberships.length === 0) {
     debugLog({ source: "space", message: "No existing space found for user", details: { userId } })
+    logSpaceMemberSnapshot("User has no space memberships", { userId, memberships })
     setSpace(null)
     setMembers([])
     setSpaces([])
@@ -130,6 +266,7 @@ async function loadExistingSpace(
   }
 
   const spaceIds = [...new Set(memberships.map((m) => m.space_id))]
+  logSpaceMemberSnapshot("User memberships loaded", { userId, memberships })
   const { data: allSpaces, error: spacesError } = await withTimeout(
     Promise.resolve(supabase.from("spaces").select("*").in("id", spaceIds)),
     "All spaces load"
@@ -137,16 +274,32 @@ async function loadExistingSpace(
 
   if (spacesError) {
     debugLog({ level: "error", source: "space", message: "All spaces load failed", details: spacesError })
+    logSpaceMemberSnapshot("Spaces load failed for user memberships", {
+      userId,
+      memberships,
+      error: spacesError,
+    })
     setSpace(null)
     setMembers([])
     setSpaces([])
     return
   }
 
+  logSpaceMemberSnapshot("Spaces loaded for user memberships", {
+    userId,
+    memberships,
+    spaces: allSpaces,
+  })
+
   const space = allSpaces?.find((space) => space.id === memberships[0].space_id) ?? null
 
   if (!space) {
     debugLog({ level: "warn", source: "space", message: "Membership pointed to missing spaces", details: { userId, spaceIds } })
+    logSpaceMemberSnapshot("BUG DETECTED: Membership pointed to missing spaces", {
+      userId,
+      memberships,
+      spaces: allSpaces,
+    })
     setSpace(null)
     setMembers([])
     setSpaces([])
@@ -470,6 +623,19 @@ export default function App() {
     if (!currentSpace || !user) return
     initTypingChannel(currentSpace.id, user.id)
     return () => teardownTypingChannel()
+  }, [currentSpace?.id, user?.id])
+
+  // Load members when switching spaces.
+  useEffect(() => {
+    if (!currentSpace || !user) return
+    debugLog({
+      source: "space-members-debug",
+      message: "Space switch triggered member load",
+      details: { spaceId: currentSpace.id, userId: user.id },
+    })
+    loadSpaceMembers(currentSpace, useSpaceStore.getState().setMembers).catch((error) => {
+      debugLog({ level: "error", source: "space", message: "Space member load failed", details: error })
+    })
   }, [currentSpace?.id, user?.id])
 
   // Keep the members panel live when someone joins, leaves, or gets kicked.
