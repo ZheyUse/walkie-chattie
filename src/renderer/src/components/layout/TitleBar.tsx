@@ -7,6 +7,7 @@ export default function TitleBar() {
   const members = useSpaceStore(s => s.members)
   const settingsOpen = useSpaceStore(s => s.settingsPanelOpen)
   const toggleSettings = useSpaceStore(s => s.toggleSettings)
+  const appVersion = import.meta.env.VITE_APP_VERSION
 
   return (
     <div
@@ -44,6 +45,12 @@ export default function TitleBar() {
             }}
           >
             ASTRA
+          </span>
+          <span
+            className="font-display text-[10px] font-semibold leading-none"
+            style={{ color: 'rgba(232,234,237,0.38)', letterSpacing: '0.06em' }}
+          >
+            v{appVersion}
           </span>
         </div>
 

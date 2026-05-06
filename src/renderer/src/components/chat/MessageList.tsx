@@ -111,9 +111,12 @@ export default function MessageList() {
             })
           }
         }
-        if ((msg.type === 'whisper' || msg.type === 'tap') && !msg.target_user_id) {
+        if ((msg.type === 'whisper' || msg.type === 'tap') && msg.target_user_id) {
           var session = (await supabase.auth.getSession()).data.session
-          if (msg.sender_id === session?.user?.id || msg.target_user_id === session?.user?.id) {
+          const includeSelf = localStorage.getItem('include_self_shout') === 'true'
+          const isOwn = msg.sender_id === session?.user?.id
+          const isTarget = msg.target_user_id === session?.user?.id
+          if (isTarget || (includeSelf && isOwn)) {
             window.api.showTap({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined })
           }
         }

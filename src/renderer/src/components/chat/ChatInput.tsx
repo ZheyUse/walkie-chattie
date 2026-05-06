@@ -140,25 +140,24 @@ export default function ChatInput() {
     if (cmd === "tap") {
       theContent = trimmed.slice(5)
       debugLog({ source: "chat", message: "Tap after slice", details: { content: theContent } })
+      let rawTapNick = ''
       const mentionMatch = theContent.match(/^@(\S+)\s+/)
       if (mentionMatch) {
         const rawNick = mentionMatch[1]
+        rawTapNick = rawNick
         debugLog({ source: "chat", message: "Tap mention parsed", details: { rawNick, membersCount: members.length, firstMember: members[0] } })
 
-        // Try local members list first (with defensive null checks)
-        const targetMember = members.find(m =>
-          (m.profile?.nickname?.toLowerCase() === rawNick.toLowerCase()) ||
-          (m as any).profile_id === profile?.id
-        )
+        // Try local members list first. Members are flattened in the space store.
+        const targetMember = members.find(m => m.nickname.toLowerCase() === rawNick.toLowerCase())
         debugLog({ source: "chat", message: "Tap local lookup", details: {
           matched: !!targetMember,
-          targetProfile: targetMember?.profile,
-          targetProfileId: targetMember?.profile_id || (targetMember as any)?.profile?.id,
+          targetUserId: targetMember?.user_id,
+          targetNickname: targetMember?.nickname,
         } })
 
-        if (targetMember?.profile?.id) {
-          targetUserId = targetMember.profile.id
-          targetNickname = targetMember.profile.nickname
+        if (targetMember?.user_id) {
+          targetUserId = targetMember.user_id
+          targetNickname = targetMember.nickname
           theContent = theContent.slice(mentionMatch[0].length)
           debugLog({ source: "chat", message: "Tap resolved from local", details: { targetUserId, targetNickname } })
         } else {
@@ -177,6 +176,11 @@ export default function ChatInput() {
         }
       } else {
         debugLog({ source: "chat", message: "Tap: no valid @mention found", details: { contentAfterSlice: theContent } })
+      }
+
+      if (!targetUserId || !targetNickname) {
+        toast(rawTapNick ? `Member "${rawTapNick}" not found` : 'Use /tap @username message')
+        return
       }
     }
     if (cmd === "kick") {

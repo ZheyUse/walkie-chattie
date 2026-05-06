@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { playSound } from '../../lib/sounds'
+import { spaceAvatarPath } from '../../lib/spaceAvatars'
 
 interface PopupData {
   sender: string
@@ -31,6 +32,7 @@ export default function ShoutPopup() {
   const [data] = useState(getPopupData)
   const spaceName = data.spaceName || 'Space'
   const spaceIcon = data.spaceIcon || '📢'
+  const isSpaceAvatar = spaceIcon.endsWith('.svg')
   const [countdown, setCountdown] = useState(5)
 
   // Play shout sound on mount
@@ -80,7 +82,15 @@ export default function ShoutPopup() {
               fontSize: '16px',
             }}
           >
-            {spaceIcon}
+            {isSpaceAvatar ? (
+              <img
+                className="w-5 h-5 object-contain"
+                src={spaceAvatarPath(spaceIcon)}
+                alt={spaceName}
+              />
+            ) : (
+              spaceIcon
+            )}
           </div>
           <span
             className="font-display font-bold text-base tracking-wide"

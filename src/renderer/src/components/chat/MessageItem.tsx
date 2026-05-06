@@ -27,6 +27,24 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+function systemMessageIcon(content: string | null) {
+  const text = (content || '').toLowerCase()
+  if (text.includes('airlock')) return 'sensor_door'
+  if (text.includes('left') || text.includes('exited')) return 'logout'
+  if (text.includes('vanished') || text.includes('void')) return 'blur_on'
+  if (text.includes('disconnected') || text.includes('powered down')) return 'power_settings_new'
+  if (text.includes('drifted')) return 'air'
+  if (text.includes('bailed')) return 'directions_run'
+  if (text.includes('radar')) return 'radar'
+  if (text.includes('orbit')) return 'orbit'
+  if (text.includes('spawned')) return 'joystick'
+  if (text.includes('landed')) return 'rocket_launch'
+  if (text.includes('door')) return 'door_open'
+  if (text.includes('phased') || text.includes('warped')) return 'auto_awesome'
+  if (text.includes('deck')) return 'explore'
+  return 'rocket_launch'
+}
+
 const EMOJI_PICKER_EMOJIS = [
   '😀','😂','😍','🥳','🤔','😅','😭','😎','🥺','🤣',
   '👍','👎','👏','🙌','💯','🔥','✨','🎉','💔','🙏',
@@ -216,10 +234,30 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
 
   if (msg.type === 'system') {
     return (
-      <div className='flex justify-center py-1'>
-        <span className='text-[11px] font-body italic px-3 py-0.5 rounded-full' style={{ color: 'rgba(139,92,246,0.5)', background: 'rgba(139,92,246,0.06)' }}>
-          {msg.content}
-        </span>
+      <div className='flex justify-center py-2 px-3'>
+        <div
+          className='group flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 hover:scale-[1.02]'
+          style={{
+            color: 'rgba(232,234,237,0.82)',
+            background: 'linear-gradient(135deg, rgba(139,92,246,0.14), rgba(26,159,255,0.08))',
+            border: '1px solid rgba(139,92,246,0.2)',
+            boxShadow: '0 6px 24px rgba(139,92,246,0.08)',
+          }}
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: '13px', color: 'rgba(167,139,250,0.85)' }}
+          >
+            {systemMessageIcon(msg.content)}
+          </span>
+          <span className='text-[11px] font-display font-semibold tracking-wide'>
+            {msg.content}
+          </span>
+          <span
+            className='w-1.5 h-1.5 rounded-full animate-pulse'
+            style={{ background: 'rgba(26,159,255,0.8)', boxShadow: '0 0 8px rgba(26,159,255,0.6)' }}
+          />
+        </div>
       </div>
     )
   }

@@ -2,6 +2,7 @@ import { resolve } from "path"
 import { defineConfig, externalizeDepsPlugin } from "electron-vite"
 import react from "@vitejs/plugin-react"
 import fs from "fs"
+import pkg from "./package.json"
 
 function copyElectronPath(): void {
   const src = resolve(__dirname, "node_modules/electron/path.txt")
@@ -35,6 +36,9 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, "src/renderer"),
     server: { port: 5174, strictPort: true },
+    define: {
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(pkg.version),
+    },
     build: { rollupOptions: { input: { index: resolve(__dirname, "src/renderer/index.html") } } },
     plugins: [react()],
   },

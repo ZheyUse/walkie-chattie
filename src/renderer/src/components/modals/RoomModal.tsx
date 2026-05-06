@@ -56,6 +56,24 @@ export default function RoomModal({ onClose, closable = false }: Props) {
 
 interface JoinViewProps { onJoined: () => void }
 
+const JOIN_MESSAGES = [
+  "{name} breached the room",
+  "{name} slipped through the airlock",
+  "{name} warped into the space",
+  "{name} entered orbit",
+  "{name} spawned in",
+  "{name} joined the space",
+  "{name} kicked the door open",
+  "{name} just landed",
+  "{name} phased into the channel",
+  "{name} is now on deck",
+]
+
+function randomJoinMessage(name: string) {
+  const template = JOIN_MESSAGES[Math.floor(Math.random() * JOIN_MESSAGES.length)]
+  return template.replace("{name}", name)
+}
+
 function JoinView({ onJoined }: JoinViewProps) {
   const [spaceId, setSpaceId] = useState("")
   const [loading, setLoading] = useState(false)
@@ -111,6 +129,17 @@ function JoinView({ onJoined }: JoinViewProps) {
       setJoiningSpace(false)
       return
     }
+
+    const joinLine = randomJoinMessage(profile?.nickname || "Someone")
+    supabase.from("messages").insert({
+      space_id: previewSpace.id,
+      sender_id: user.id,
+      sender_nickname: profile?.nickname || "Someone",
+      type: "system",
+      content: joinLine,
+    }).then(({ error }) => {
+      if (error) debugLog({ level: "warn", source: "room-modal", message: "Join system message failed", details: error })
+    })
 
     debugLog({ source: "room-modal", message: "Joined space successfully", details: { spaceId: previewSpace.id } })
     setSpace(previewSpace)

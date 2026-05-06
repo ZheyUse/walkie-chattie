@@ -39,13 +39,13 @@ export default function TypingIndicator() {
           30% { transform: translateY(-4px); opacity: 1; }
         }
       `}</style>
-      <div className="px-4 py-1.5 flex items-center gap-1.5">
+      <div className="px-4 py-1.5 flex items-center justify-end gap-1.5">
         <div className="flex items-center gap-0.5 h-4">
           <TypingDot delay={0} />
           <TypingDot delay={160} />
           <TypingDot delay={320} />
         </div>
-        <span className="text-xs italic" style={{ color: 'rgba(139,92,246,0.5)' }}>{label}</span>
+        <span className="text-xs italic text-right" style={{ color: 'rgba(139,92,246,0.5)' }}>{label}</span>
       </div>
     </>
   )

@@ -471,6 +471,43 @@ export default function App() {
     return () => teardownTypingChannel()
   }, [currentSpace?.id, user?.id])
 
+  // Keep the members panel live when someone joins, leaves, or gets kicked.
+  useEffect(() => {
+    if (!currentSpace || !user) return
+
+    let refreshTimer: ReturnType<typeof window.setTimeout> | null = null
+    const refreshMembers = (reason: string, details?: unknown) => {
+      debugLog({ source: "space-realtime", message: `Refreshing members: ${reason}`, details })
+      if (refreshTimer) window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => {
+        const space = useSpaceStore.getState().currentSpace
+        if (!space || space.id !== currentSpace.id) return
+        loadSpaceMembers(space, useSpaceStore.getState().setMembers).catch((error) => {
+          debugLog({ level: "error", source: "space-realtime", message: "Member refresh failed", details: error })
+        })
+      }, 250)
+    }
+
+    const channel = supabase
+      .channel(`space-members:${currentSpace.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "space_members",
+        filter: `space_id=eq.${currentSpace.id}`,
+      }, (payload) => {
+        refreshMembers(payload.eventType, payload)
+      })
+      .subscribe((status) => {
+        debugLog({ source: "space-realtime", message: "Members subscription status", details: { status, spaceId: currentSpace.id } })
+      })
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer)
+      supabase.removeChannel(channel)
+    }
+  }, [currentSpace?.id, user?.id])
+
   const loadingReasons = getLoadingReasons({ loading, ready, user, spacesReady, profile, currentSpace })
   const isLoadingScreen = loading || !ready || (user && !spacesReady)
 

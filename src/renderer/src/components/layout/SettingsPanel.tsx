@@ -28,6 +28,24 @@ function isMuted(spaceId: string) {
   return expiry === 0 || (expiry !== null && expiry > Date.now())
 }
 
+const LEAVE_MESSAGES = [
+  "{name} slipped out of the airlock",
+  "{name} left the space",
+  "{name} vanished from comms",
+  "{name} disconnected from orbit",
+  "{name} exited the channel",
+  "{name} drifted into deep space",
+  "{name} bailed from the bridge",
+  "{name} powered down their signal",
+  "{name} blinked off the radar",
+  "{name} returned to the void",
+]
+
+function randomLeaveMessage(name: string) {
+  const template = LEAVE_MESSAGES[Math.floor(Math.random() * LEAVE_MESSAGES.length)]
+  return template.replace("{name}", name)
+}
+
 export default function SettingsPanel() {
   const { profile } = useAuthStore()
   const { currentSpace, setSpace, setSpaces, spaces } = useSpaceStore()
@@ -132,6 +150,16 @@ export default function SettingsPanel() {
 
   const handleLeave = async () => {
     if (!currentSpace || !profile) return
+    const leaveLine = randomLeaveMessage(profile.nickname || "Someone")
+    supabase.from('messages').insert({
+      space_id: currentSpace.id,
+      sender_id: profile.id,
+      sender_nickname: profile.nickname,
+      type: 'system',
+      content: leaveLine,
+    }).then(({ error }) => {
+      if (error) debugLog({ level: 'warn', source: 'settings', message: 'Leave system message failed', details: error })
+    })
     await supabase.from('space_members').delete().eq('space_id', currentSpace.id).eq('user_id', profile.id)
     const { data: remain } = await supabase.from('space_members').select('space_id').eq('user_id', profile.id).eq('blacklisted', false).neq('space_id', currentSpace.id)
     let nextSpace = null

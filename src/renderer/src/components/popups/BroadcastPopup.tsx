@@ -1,5 +1,6 @@
 import 'material-symbols'
 import { useState, useEffect } from "react"
+import { spaceAvatarPath } from '../../lib/spaceAvatars'
 
 interface PopupData {
   sender: string
@@ -31,6 +32,7 @@ export default function BroadcastPopup() {
   const [data] = useState(getPopupData)
   const spaceName = data.spaceName || 'Space'
   const spaceIcon = data.spaceIcon || '📢'
+  const isSpaceAvatar = spaceIcon.endsWith('.svg')
   const [countdown, setCountdown] = useState(5)
 
   useEffect(() => {
@@ -69,7 +71,15 @@ export default function BroadcastPopup() {
             className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)' }}
           >
-            {spaceIcon}
+            {isSpaceAvatar ? (
+              <img
+                className="w-5 h-5 object-contain"
+                src={spaceAvatarPath(spaceIcon)}
+                alt={spaceName}
+              />
+            ) : (
+              spaceIcon
+            )}
           </div>
           <span
             className="font-display font-bold text-base tracking-wide"
