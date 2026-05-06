@@ -468,6 +468,8 @@ function setupAutoUpdater() {
   let usedGenericFallback = false
   const genericFeedUrl = "https://github.com/ZheyUse/walkie-chattie/releases/latest/download/"
 
+  autoUpdater.autoDownload = false
+
   autoUpdater.logger = {
     info: (msg) => addDebugLog("info", "updater", String(msg)),
     warn: (msg) => addDebugLog("warn", "updater", String(msg)),
@@ -522,7 +524,7 @@ function setupAutoUpdater() {
 
   // Check for updates — skips in dev mode (ELECTRON_RENDERER_URL is only set in dev)
   if (!isDev) {
-    autoUpdater.checkForUpdatesAndNotify()
+    autoUpdater.checkForUpdates()
       .then((result) => {
         addDebugLog("info", "updater", "Update check completed", {
           currentVersion: app.getVersion(),
