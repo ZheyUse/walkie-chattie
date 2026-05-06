@@ -1,4 +1,4 @@
-import 'material-symbols'
+﻿import 'material-symbols'
 import { useState } from "react"
 import { supabase } from "../../lib/supabase"
 import { useAuthStore } from "../../stores/auth.store"
@@ -75,6 +75,7 @@ export default function CreateSpaceForm() {
       space_id: spaceId,
       user_id: user.id,
       nickname: profile.nickname,
+      display_name: null,
       avatar_color: profile.avatar_color,
       role: "admin",
       joined_at: new Date().toISOString(),

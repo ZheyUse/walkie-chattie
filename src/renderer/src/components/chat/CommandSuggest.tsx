@@ -1,33 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
-
+﻿import { useEffect, useRef, useState } from 'react'
 interface Command {
   id: string
   label: string
   description: string
 }
-
 const COMMANDS: Command[] = [
   { id: 'shout', label: '/shout', description: 'Broadcast to the entire space' },
   { id: 'tap', label: '/tap', description: 'Tap a user to send a private shout' },
   { id: 'kick', label: '/kick', description: 'Remove a member from this space (admin only)' },
   { id: 'all', label: '/all', description: 'Mention everyone in the space' },
+  { id: 'nickname', label: '/nickname', description: 'Set your display name for this space' },
 ]
-
 interface Props {
   query: string
   onSelect: (command: string) => void
   onClose: () => void
 }
-
 export default function CommandSuggest({ query, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const filtered = COMMANDS.filter((c) =>
-    c.id.toLowerCase().includes(query.toLowerCase())
+    c.id.toLowerCase().startsWith(query.toLowerCase())
   )
-
   useEffect(() => { setSelectedIndex(0) }, [query])
-
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
@@ -35,7 +30,6 @@ export default function CommandSuggest({ query, onSelect, onClose }: Props) {
     document.addEventListener('mousedown', h)
     return function () { document.removeEventListener('mousedown', h) }
   }, [onClose])
-
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return }
@@ -56,9 +50,7 @@ export default function CommandSuggest({ query, onSelect, onClose }: Props) {
     document.addEventListener('keydown', k)
     return function () { document.removeEventListener('keydown', k) }
   }, [filtered, selectedIndex, onSelect, onClose])
-
   if (filtered.length === 0) return null
-
   return (
     <div
       ref={ref}

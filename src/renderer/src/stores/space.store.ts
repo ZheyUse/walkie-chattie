@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+﻿import { create } from 'zustand'
 import { debugLog } from '../lib/debug'
 
 export interface Space {
@@ -14,6 +14,7 @@ export interface Member {
   space_id: string
   user_id: string
   nickname: string
+  display_name?: string | null
   avatar_color: string
   picture?: string
   role: string
@@ -37,6 +38,7 @@ interface SpaceState {
   setTypingUsers: (u: Set<string>) => void
   isMuted: () => boolean
   getMemberPicture: (userId: string) => string | undefined
+  updateSpaceName: (newName: string) => void
 }
 
 export const useSpaceStore = create<SpaceState>((set) => ({
@@ -138,4 +140,11 @@ export const useSpaceStore = create<SpaceState>((set) => ({
     const member = useSpaceStore.getState().members.find((m: Member) => m.user_id === userId)
     return member?.picture
   },
+  updateSpaceName: (newName) => set((state) => {
+    if (!state.currentSpace) return {}
+    return {
+      currentSpace: { ...state.currentSpace, name: newName },
+      spaces: state.spaces.map(s => s.id === state.currentSpace!.id ? { ...s, name: newName } : s),
+    }
+  }),
 }))

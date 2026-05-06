@@ -1,4 +1,4 @@
-import 'material-symbols'
+﻿import 'material-symbols'
 import { useState } from "react"
 import { supabase } from "../../lib/supabase"
 import { useAuthStore } from "../../stores/auth.store"
@@ -8,6 +8,7 @@ import CreateSpaceForm from "./CreateSpaceForm"
 import { debugLog } from "../../lib/debug"
 import { spaceAvatarPath } from "../../lib/spaceAvatars"
 import { assetPath } from "../../lib/assets"
+import { toast } from "../../lib/toast"
 
 interface Props { onClose: () => void; closable?: boolean }
 
@@ -122,12 +123,38 @@ function JoinView({ onJoined }: JoinViewProps) {
     if (!previewSpace || !user) return
     setJoiningSpace(true)
 
-    const { error: memberErr } = await supabase.from("space_members").insert({ space_id: previewSpace.id, user_id: user.id, role: "member" })
+    const insertPayload = { space_id: previewSpace.id, user_id: user.id, role: "member", blacklisted: false }
+    const { error: memberErr } = await supabase.from("space_members").insert(insertPayload)
     if (memberErr) {
       debugLog({ level: "error", source: "room-modal", message: "Failed to insert space member", details: memberErr })
-      if (memberErr.message.includes("unique")) setPreviewSpace(null)
-      setJoiningSpace(false)
-      return
+
+      if (memberErr.message.includes("unique")) {
+        debugLog({ level: "warn", source: "room-modal", message: "Join hit existing membership; attempting cleanup", details: { spaceId: previewSpace.id, userId: user.id } })
+        const { error: cleanupErr } = await supabase
+          .from("space_members")
+          .delete()
+          .eq("space_id", previewSpace.id)
+          .eq("user_id", user.id)
+
+        if (cleanupErr) {
+          debugLog({ level: "error", source: "room-modal", message: "Membership cleanup failed", details: cleanupErr })
+          toast("Join failed â€” ask the admin to re-invite you.")
+          setJoiningSpace(false)
+          return
+        }
+
+        const { error: retryErr } = await supabase.from("space_members").insert(insertPayload)
+        if (retryErr) {
+          debugLog({ level: "error", source: "room-modal", message: "Join retry failed", details: retryErr })
+          toast("Join failed â€” ask the admin to re-invite you.")
+          setJoiningSpace(false)
+          return
+        }
+      } else {
+        toast("Join failed â€” please try again.")
+        setJoiningSpace(false)
+        return
+      }
     }
 
     const joinLine = randomJoinMessage(profile?.nickname || "Someone")
@@ -161,7 +188,7 @@ function JoinView({ onJoined }: JoinViewProps) {
 
     const { data: members, error: membersError } = await supabase
       .from("space_members")
-      .select("space_id, user_id, role, joined_at")
+      .select("space_id, user_id, role, joined_at, display_name")
       .eq("space_id", previewSpace.id)
       .eq("blacklisted", false)
     if (membersError) {
@@ -181,7 +208,8 @@ function JoinView({ onJoined }: JoinViewProps) {
         nickname: profiles?.find(p => p.id === m.user_id)?.nickname || "?",
         avatar_color: profiles?.find(p => p.id === m.user_id)?.avatar_color || "#888",
         picture: profiles?.find(p => p.id === m.user_id)?.picture,
-      }))
+        display_name: m.display_name ?? null,
+          }))
       const mismatchMembers = enriched.filter(m => m.space_id !== previewSpace.id)
       debugLog({
         level: mismatchMembers.length > 0 ? "error" : "info",

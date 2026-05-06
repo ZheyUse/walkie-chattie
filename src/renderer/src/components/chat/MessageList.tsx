@@ -1,8 +1,10 @@
-import 'material-symbols'
+﻿import 'material-symbols'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useSpaceStore } from '../../stores/space.store'
 import { useChatStore, type Message } from '../../stores/chat.store'
+
+import { applyPresenceLastActive } from "../../lib/presence"
 import { useAuthStore } from '../../stores/auth.store'
 import MessageItem from './MessageItem'
 import { debugLog } from '../../lib/debug'
@@ -21,6 +23,8 @@ export default function MessageList() {
   const profileIdRef = useRef<string | undefined>(profile?.id)
   const isAtBottomRef = useRef(true)
   const autoScrollRef = useRef(false)
+  const isOwnMessageInsertRef = useRef(false)
+  const messageCacheRef = useRef<Map<string, Message[]>>(new Map())
   const [showJumpBtn, setShowJumpBtn] = useState(false)
 
   // Pagination state
@@ -43,6 +47,19 @@ export default function MessageList() {
     })
   }, [messages.length, pageOffset])
 
+  // Normalize raw reactions from DB to UI format
+  const normalizeReactions = (raw: unknown): Message['reactions'] => {
+    if (!Array.isArray(raw)) return []
+    return raw
+      .map((r) => {
+        const emoji = typeof r?.emoji === 'string' ? r.emoji : null
+        const userIds = Array.isArray(r?.user_ids) ? r.user_ids.filter(Boolean) : []
+        if (!emoji) return null
+        return { emoji, userIds, count: userIds.length, reacted: userIds.includes(profileIdRef.current ?? '') }
+      })
+      .filter(Boolean) as Message['reactions']
+  }
+
   // Fetch messages for a given offset
   const fetchMessages = (offset: number, resetLoad = false) => {
     if (!currentSpace) return
@@ -59,7 +76,10 @@ export default function MessageList() {
       .then(({ data, count }) => {
         if (!data) { setLoadingOlder(false); return }
 
-        const formatted = data.map(m => ({ ...m, status: 'sent' as const })) as Message[]
+        const formatted = data.map(m => {
+          const reactions = normalizeReactions((m as Message & { reactions?: unknown }).reactions)
+          return { ...m, status: 'sent' as const, reactions } as Message
+        })
 
         if (offset === 0) {
           setMessages(formatted)
@@ -74,7 +94,7 @@ export default function MessageList() {
       })
   }
 
-  // ── Subscription state tracking ──
+  // â”€â”€ Subscription state tracking â”€â”€
   const subscriptionActiveRef = useRef(false)
   const subscriptionErrorRef = useRef(false)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -140,19 +160,19 @@ export default function MessageList() {
 
         const isOwn = msg.sender_id === profileIdRef.current
         if (!isOwn) {
-          // Detect @mentions — still notify these even when the space is muted (like Discord)
+          // Detect @mentions â€” still notify these even when the space is muted (like Discord)
           const myNickname = profileIdRef.current ? useAuthStore.getState().profile?.nickname : null
           const contentLower = (msg.content || '').toLowerCase()
           const isMentioned = myNickname
             ? contentLower.includes(`@${myNickname.toLowerCase()}`)
             : false
 
-          if (isMentioned) debugLog({ source: 'chat-realtime', message: 'Mention detected — bypassing mute', details: { myNickname, content: msg.content } })
+          if (isMentioned) debugLog({ source: 'chat-realtime', message: 'Mention detected â€” bypassing mute', details: { myNickname, content: msg.content } })
 
           triggerNotification({
             title: msg.sender_nickname || 'New message',
-            body: msg.type === 'shout' ? '🔊 ' + (msg.content || '') :
-                  msg.type === 'whisper' || msg.type === 'tap' ? '💜 ' + (msg.content || '') :
+            body: msg.type === 'shout' ? 'ðŸ”Š ' + (msg.content || '') :
+                  msg.type === 'whisper' || msg.type === 'tap' ? 'ðŸ’œ ' + (msg.content || '') :
                   (msg.content || ''),
             tag: msg.id,
           }, isMentioned)
@@ -171,16 +191,17 @@ export default function MessageList() {
           if (existingIdx !== -1) {
             debugLog({ source: 'chat-realtime', message: 'Replacing temp message with DB record', details: { tempId: currentMessages[existingIdx].id, realId: msg.id } })
             nextMessages = [...currentMessages]
-            nextMessages[existingIdx] = { ...msg, status: 'sent', tmpId: currentMessages[existingIdx].tmpId } as Message
+            nextMessages[existingIdx] = { ...msg, status: 'sent', tmpId: currentMessages[existingIdx].tmpId, reactions: normalizeReactions(msg.reactions) } as Message
           } else {
             debugLog({ source: 'chat-realtime', message: 'Own message received (no temp found)', details: { msgId: msg.id } })
-            nextMessages = [...currentMessages, { ...msg, status: 'sent' } as Message]
+            nextMessages = [...currentMessages, { ...msg, status: 'sent', reactions: normalizeReactions(msg.reactions) } as Message]
           }
         } else {
           debugLog({ source: 'chat-realtime', message: 'Other member message received', details: { msgId: msg.id, sender: msg.sender_nickname } })
-          nextMessages = [...currentMessages, msg]
+          nextMessages = [...currentMessages, { ...msg, reactions: normalizeReactions(msg.reactions) }]
         }
 
+        isOwnMessageInsertRef.current = isOwn
         setMessages(nextMessages)
 
         // Instantly refresh context window counter
@@ -228,16 +249,17 @@ export default function MessageList() {
           newStatus = 'delivered' as Message['status']
         }
         const updatedSeenBy = (updated as any).seen_by ?? updated.seenBy
+        const updatedReactions = normalizeReactions((updated as Message & { reactions?: unknown }).reactions)
         const prev = useChatStore.getState().messages
         const nextMessages = prev.map(function(m: Message) {
           if (m.id === updated.id || m.tmpId === updated.id) {
-            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy }
+            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy, reactions: updatedReactions.length ? updatedReactions : m.reactions }
           }
           if (m.sender_id === updated.sender_id &&
               m.space_id === updated.space_id &&
               (m.tmpId || '').startsWith('temp-') &&
               m.status === 'sending') {
-            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy }
+            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy, reactions: updatedReactions.length ? updatedReactions : m.reactions }
           }
           return m
         })
@@ -309,7 +331,7 @@ export default function MessageList() {
     const addedMessage = messages.length > prevMessagesLenRef.current
     prevMessagesLenRef.current = messages.length
 
-    if (!addedMessage || !autoScrollRef.current || !isAtBottomRef.current || searchQuery.trim()) {
+    if (!addedMessage || (!autoScrollRef.current && !isOwnMessageInsertRef.current) || searchQuery.trim()) {
       autoScrollRef.current = false
       return
     }
@@ -317,6 +339,7 @@ export default function MessageList() {
     requestAnimationFrame(() => {
       if (!listRef.current) return
       listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+      isOwnMessageInsertRef.current = false
       autoScrollRef.current = false
     })
   }, [messages.length, searchQuery])

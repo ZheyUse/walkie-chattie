@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react"
+﻿import { useEffect, useState } from "react"
 import { supabase } from "./lib/supabase"
 import { useAuthStore, type Profile } from "./stores/auth.store"
 import { useSpaceStore, type Member, type Space } from "./stores/space.store"
+import { useChatStore } from "./stores/chat.store"
 import AuthPage from "./pages/AuthPage"
 import OnboardingPage from "./pages/OnboardingPage"
 import DashboardPage from "./pages/DashboardPage"
@@ -15,6 +16,7 @@ import ShoutPopup from "./components/popups/ShoutPopup"
 import TapPopup from "./components/popups/TapPopup"
 import BroadcastPopup from "./components/popups/BroadcastPopup"
 import { debugLog } from "./lib/debug"
+import { useIdleTracker, lastActiveRef, applyPresenceLastActive } from "./lib/presence"
 import { initTypingChannel, teardownTypingChannel } from "./lib/typing-channel"
 import { assetPath } from "./lib/assets"
 
@@ -108,7 +110,7 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
   const { data: members, error: membersError } = await withTimeout(
     supabase
       .from("space_members")
-      .select("space_id, user_id, role, joined_at")
+      .select("space_id, user_id, role, joined_at, display_name")
       .eq("space_id", spaceId)
       .eq("blacklisted", false),
       
@@ -168,6 +170,7 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
     nickname: profiles?.find((p) => p.id === m.user_id)?.nickname || "?",
     avatar_color: profiles?.find((p) => p.id === m.user_id)?.avatar_color || "#888",
     picture: profiles?.find((p) => p.id === m.user_id)?.picture,
+    display_name: m.display_name ?? null,
   }))
   const mismatchMembers = enrichedMembers.filter((m) => m.space_id !== spaceId)
   const activeSpaceId = useSpaceStore.getState().currentSpace?.id ?? null
@@ -366,6 +369,7 @@ export default function App() {
   const isBrowserOAuthRelay = !window.api && window.location.hash.includes('access_token')
   const isDebugRoute = window.location.hash === "#/debug"
   const user = useAuthStore(s => s.user)
+  useIdleTracker(user?.id ?? "")
   const loading = useAuthStore(s => s.loading)
   const setSession = useAuthStore(s => s.setSession)
   const setProfile = useAuthStore(s => s.setProfile)
@@ -432,7 +436,7 @@ export default function App() {
 
           if (user) {
             debugLog({ source: "auth", message: "OAuth fragment session restored", details: { userId: user.id } })
-            // Don't call loadProfile here — setSession triggers onAuthStateChange which handles it
+            // Don't call loadProfile here â€” setSession triggers onAuthStateChange which handles it
             setSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: 3600, token_type: 'bearer', user })
             history.replaceState(null, '', window.location.pathname)
             return true
@@ -498,15 +502,15 @@ export default function App() {
           setSpacesReady(false)
         }
         // Only reload profile if the user actually changed AND no profile exists yet.
-        // This covers: (1) first sign-in with no profile yet → load it
-        //               (2) same-user token refresh → skip it to avoid wiping a profile
+        // This covers: (1) first sign-in with no profile yet â†’ load it
+        //               (2) same-user token refresh â†’ skip it to avoid wiping a profile
         //                  that was just set (e.g. during onboarding)
-        //               (3) same-user but no profile yet → load it
+        //               (3) same-user but no profile yet â†’ load it
         const existingProfile = useAuthStore.getState().profile
         if (userChanged || !existingProfile) {
           loadProfile(session.user.id, setProfile)
         } else {
-          debugLog({ source: "auth", message: "Skipping profile load — same user with existing profile" })
+          debugLog({ source: "auth", message: "Skipping profile load â€” same user with existing profile" })
         }
       } else {
         setProfile(null)
@@ -549,7 +553,7 @@ export default function App() {
     const safetyTimeout = window.setTimeout(() => {
       if (!done) {
         done = true
-        debugLog({ level: "error", source: "space", message: "Space lookup safety timeout fired — forcing spacesReady=true" })
+        debugLog({ level: "error", source: "space", message: "Space lookup safety timeout fired â€” forcing spacesReady=true" })
         setSpacesReady(true)
       }
     }, 12000)
@@ -574,13 +578,31 @@ export default function App() {
       config: { broadcast: { self: false }, presence: { key: user.id } }
     })
 
+    let presenceRefreshTimer: ReturnType<typeof window.setTimeout> | null = null
+    const refreshMembersFromPresence = (reason: string, details?: unknown) => {
+      if (presenceRefreshTimer) window.clearTimeout(presenceRefreshTimer)
+      presenceRefreshTimer = window.setTimeout(() => {
+        const activeSpace = useSpaceStore.getState().currentSpace
+        if (!activeSpace || activeSpace.id !== currentSpace.id) return
+        debugLog({ source: "space-realtime", message: `Presence refresh: ${reason}`, details })
+        loadSpaceMembers(activeSpace, useSpaceStore.getState().setMembers).catch((error) => {
+          debugLog({ level: "error", source: "space-realtime", message: "Presence member refresh failed", details: error })
+        })
+      }, 250)
+    }
+
     const syncOnlineUsers = () => {
       if (!useSpaceStore.getState().currentSpace) return
       const allOnline = channel.presenceState()
-      const ids = Object.values(allOnline)
-        .flat()
-        .map((s) => (s as unknown as { user_id: string }).user_id)
-        .filter(Boolean)
+      const ids: string[] = []
+      Object.values(allOnline).flat().forEach((s) => {
+        const state = s as unknown as { user_id: string; last_active?: number }
+        if (state.user_id) {
+          ids.push(state.user_id)
+          if (state.last_active) applyPresenceLastActive(state.user_id, state.last_active)
+          else lastActiveRef[state.user_id] = Date.now()
+        }
+      })
       useSpaceStore.getState().setOnlineUsers(new Set(ids))
     }
 
@@ -600,9 +622,19 @@ export default function App() {
       .on("presence", { event: "sync" }, syncOnlineUsers)
       .on("presence", { event: "join" }, ({ key, currentPresences }) => {
         syncOnlineUsers()
+        if (Array.isArray(currentPresences) && currentPresences.length > 0) {
+          const state = currentPresences[0] as unknown as { last_active?: number }
+          if (state.last_active) applyPresenceLastActive(key, state.last_active)
+        }
+        refreshMembersFromPresence("join", { key, currentPresences })
       })
       .on("presence", { event: "leave" }, ({ key, currentPresences }) => {
         syncOnlineUsers()
+        if (Array.isArray(currentPresences) && currentPresences.length > 0) {
+          const state = currentPresences[0] as unknown as { last_active?: number }
+          if (state.last_active) applyPresenceLastActive(key, state.last_active)
+        }
+        refreshMembersFromPresence("leave", { key, currentPresences })
       })
       .on("broadcast", { event: "typing" }, (payload) => {
         const uid = (payload.payload as unknown as { user_id: string }).user_id
@@ -615,12 +647,34 @@ export default function App() {
         const uid = (payload.payload as unknown as { user_id: string }).user_id
         clearTyping(uid)
       })
+      .on("broadcast", { event: "room_rename" }, (payload) => {
+        const p = payload.payload as unknown as { name: string }
+        if (p.name && useSpaceStore.getState().currentSpace?.id === currentSpace.id) {
+          useSpaceStore.getState().updateSpaceName(p.name)
+          debugLog({ source: 'space-realtime', message: 'Space renamed via broadcast', details: { newName: p.name } })
+        }
+      })
+      .on("broadcast", { event: "chat_reset" }, (payload) => {
+        const p = payload.payload as unknown as { spaceId: string }
+        if (p.spaceId === currentSpace.id) {
+          useChatStore.getState().setMessages([])
+          debugLog({ source: 'space-realtime', message: 'Chat reset received via broadcast' })
+        }
+      })
       .subscribe(async (status) => {
         if (status !== "SUBSCRIBED") return
-        await channel.track({ user_id: user.id })
+        // Track with last_active for idle detection across clients
+        await channel.track({ user_id: user.id, last_active: lastActiveRef[user.id] || Date.now() })
       })
 
+    // Re-sync last_active to presence every 5 min so other clients keep busy/online accurate
+    const presenceTrackInterval = setInterval(() => {
+      channel.track({ user_id: user.id, last_active: lastActiveRef[user.id] || Date.now() })
+    }, 5 * 60_000)
+
     return () => {
+      clearInterval(presenceTrackInterval)
+      if (presenceRefreshTimer) window.clearTimeout(presenceRefreshTimer)
       supabase.removeChannel(channel)
       useSpaceStore.getState().setOnlineUsers(new Set())
       useSpaceStore.getState().setTypingUsers(new Set())

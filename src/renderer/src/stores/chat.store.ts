@@ -22,6 +22,7 @@ export interface Message {
   image_url: string | null
   gif_url: string | null
   target_user_id: string | null
+  reply_to?: string | null
   created_at: string
   status?: MessageStatus
   tmpId?: string
@@ -37,6 +38,7 @@ interface ChatState {
   searchQuery: string
   loading: boolean
   editingMessage: Message | null
+  replyingTo: Message | null
   setMessages: (msgs: Message[]) => void
   prependMessage: (msg: Message) => void
   prependMessages: (msgs: Message[]) => void
@@ -51,7 +53,8 @@ interface ChatState {
   setSearchQuery: (q: string) => void
   setLoading: (l: boolean) => void
   setEditingMessage: (msg: Message | null) => void
-  toggleReaction: (lookupId: string, emoji: string, userId: string) => void
+  setReplyingTo: (msg: Message | null) => void
+  toggleReaction: (lookupId: string, emoji: string, userId: string) => Promise<void>
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -62,6 +65,7 @@ export const useChatStore = create<ChatState>((set) => ({
   searchQuery: '',
   loading: false,
   editingMessage: null,
+  replyingTo: null,
 
   setMessages: (msgs) => {
     debugLog({ source: 'chat', message: '[store] setMessages', details: { count: msgs.length } })
@@ -141,7 +145,10 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setEditingMessage: (msg) => set({ editingMessage: msg }),
 
-  toggleReaction: (lookupId, emoji, userId) => {
+  setReplyingTo: (msg) => set({ replyingTo: msg }),
+
+  toggleReaction: async (lookupId, emoji, userId) => {
+    let nextReactions: MessageReaction[] | null = null
     set((s) => ({
       messages: s.messages.map(m => {
         if (m.id !== lookupId && m.tmpId !== lookupId) return m
@@ -162,8 +169,21 @@ export const useChatStore = create<ChatState>((set) => ({
         } else {
           reactions.push({ emoji, count: 1, reacted: true, userIds: [userId] })
         }
+        nextReactions = reactions
         return { ...m, reactions }
       })
     }))
+
+    if (!nextReactions) return
+
+    const payload = nextReactions.map(r => ({
+      emoji: r.emoji,
+      user_ids: r.userIds,
+    }))
+
+    await supabase
+      .from('messages')
+      .update({ reactions: payload })
+      .eq('id', lookupId)
   },
 }))

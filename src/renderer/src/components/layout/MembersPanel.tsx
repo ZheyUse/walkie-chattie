@@ -1,8 +1,10 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore, type Member } from "../../stores/space.store"
 import { supabase } from "../../lib/supabase"
 import { debugLog } from "../../lib/debug"
+import { getOnlineStatus } from "../../lib/presence"
+import { toast } from "../../lib/toast"
 import Avatar from "../ui/Avatar"
 
 export default function MembersPanel() {
@@ -10,6 +12,7 @@ export default function MembersPanel() {
   const { currentSpace, members, onlineUsers, setMembers } = useSpaceStore()
 
   const isAdmin = currentSpace?.owner_id === profile?.id
+  const [blockLoading, setBlockLoading] = useState<string | null>(null)
   const wrongSpaceMembers = currentSpace ? members.filter(m => m.space_id !== currentSpace.id) : []
   const wrongSpaceMembersKey = wrongSpaceMembers.map(m => `${m.space_id}:${m.user_id}`).join("|")
   useEffect(() => {
@@ -31,17 +34,54 @@ export default function MembersPanel() {
   }, [currentSpace?.id, wrongSpaceMembersKey])
 
   const visibleMembers = currentSpace ? members.filter(m => m.space_id === currentSpace.id) : []
+  const getDisplayName = (member: Member) => member.display_name?.trim() || member.nickname
+
+  const getStatus = (member: Member) => {
+    const baseStatus = getOnlineStatus(member.user_id, onlineUsers)
+    if (baseStatus === 'offline') return 'offline'
+    if (!currentSpace) return baseStatus
+    // DND: space is muted for this app instance
+    const muteExpiryRaw = localStorage.getItem(`space-muted:${currentSpace.id}`)
+    if (muteExpiryRaw) {
+      const expiry = parseInt(muteExpiryRaw, 10)
+      if (expiry === 0 || (expiry !== null && expiry > Date.now())) {
+        return 'dnd'
+      }
+    }
+    // Show dnd if this user is the one who muted (their own mute is active)
+    if (member.user_id === profile?.id) {
+      const ownMuteRaw = localStorage.getItem(`space-muted:${currentSpace.id}`)
+      if (ownMuteRaw) {
+        const expiry = parseInt(ownMuteRaw, 10)
+        if (expiry === 0 || (expiry !== null && expiry > Date.now())) {
+          return 'dnd'
+        }
+      }
+    }
+    return baseStatus // 'online' or 'busy'
+  }
+
   const onlineMembers = visibleMembers.filter(m => onlineUsers.has(m.user_id))
   const offlineMembers = visibleMembers.filter(m => !onlineUsers.has(m.user_id))
-
   const handleBlacklist = async (member: Member) => {
     if (!currentSpace) return
-    await supabase
+    const displayName = member.display_name?.trim() || member.nickname
+    const confirmed = window.confirm(`Block "${displayName}"? They will be removed from the space.`)
+    if (!confirmed) return
+    setBlockLoading(member.user_id)
+    const { error } = await supabase
       .from('space_members')
       .update({ blacklisted: true })
       .eq('space_id', currentSpace.id)
       .eq('user_id', member.user_id)
+    setBlockLoading(null)
+    if (error) {
+      debugLog({ level: "error", source: "space-members", message: "Failed to blacklist member", details: error })
+      toast('Failed to block member. Try again.')
+      return
+    }
     setMembers(members.filter(m => !(m.space_id === currentSpace.id && m.user_id === member.user_id)))
+    toast(`${displayName} has been blocked`)
   }
 
   return (
@@ -74,12 +114,12 @@ export default function MembersPanel() {
               className="w-1.5 h-1.5 rounded-full animate-pulse"
               style={{ background: 'rgba(34,197,94,0.8)', boxShadow: '0 0 6px rgba(34,197,94,0.6)' }}
             />
-            Online — {onlineMembers.length}
+            Online - {onlineMembers.length}
           </div>
           {onlineMembers.map(m => (
             <div key={m.user_id} className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-white/[0.03]">
-              <Avatar nickname={m.nickname} picture={m.picture} color={m.avatar_color} size="sm" showStatus online />
-              <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.8)' }}>{m.nickname}</span>
+              <Avatar nickname={getDisplayName(m)} picture={m.picture} color={m.avatar_color} size="sm" showStatus status={getStatus(m)} />
+              <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.8)' }}>{getDisplayName(m)}</span>
               {m.role === 'admin' && (
                 <span
                   className="text-[9px] font-body uppercase tracking-wider px-1.5 py-0.5 rounded-md"
@@ -91,10 +131,11 @@ export default function MembersPanel() {
               {isAdmin && m.user_id !== profile?.id && (
                 <button
                   onClick={() => handleBlacklist(m)}
-                  className="text-[10px] font-body transition-colors"
+                  disabled={blockLoading === m.user_id}
+                  className="text-[10px] font-body transition-colors disabled:opacity-40"
                   style={{ color: 'rgba(239,68,68,0.5)' }}
                 >
-                  block
+                  {blockLoading === m.user_id ? 'blocking...' : 'block'}
                 </button>
               )}
             </div>
@@ -107,12 +148,12 @@ export default function MembersPanel() {
             className="px-3 py-2 text-[10px] font-body uppercase tracking-wider"
             style={{ borderBottom: '1px solid rgba(139,92,246,0.06)', color: 'rgba(90,100,120,0.4)' }}
           >
-            Offline — {offlineMembers.length}
+            Offline - {offlineMembers.length}
           </div>
           {offlineMembers.map(m => (
             <div key={m.user_id} className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-white/[0.03]">
-              <Avatar nickname={m.nickname} picture={m.picture} color={m.avatar_color} size="sm" showStatus />
-              <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.55)' }}>{m.nickname}</span>
+              <Avatar nickname={getDisplayName(m)} picture={m.picture} color={m.avatar_color} size="sm" showStatus status={getStatus(m)} />
+              <span className="text-sm font-body flex-1 truncate" style={{ color: 'rgba(232,234,237,0.55)' }}>{getDisplayName(m)}</span>
               {m.role === 'admin' && (
                 <span
                   className="text-[9px] font-body uppercase tracking-wider px-1.5 py-0.5 rounded-md"
@@ -124,10 +165,11 @@ export default function MembersPanel() {
               {isAdmin && m.user_id !== profile?.id && (
                 <button
                   onClick={() => handleBlacklist(m)}
-                  className="text-[10px] font-body transition-colors"
+                  disabled={blockLoading === m.user_id}
+                  className="text-[10px] font-body transition-colors disabled:opacity-40"
                   style={{ color: 'rgba(239,68,68,0.35)' }}
                 >
-                  block
+                  {blockLoading === m.user_id ? 'blocking...' : 'block'}
                 </button>
               )}
             </div>

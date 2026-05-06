@@ -82,6 +82,11 @@ export default function SettingsPanel() {
     await supabase.from('spaces').update({ name: editNameValue.trim() }).eq('id', currentSpace.id)
     setSpace({ ...currentSpace, name: editNameValue.trim() })
     setSpaces(spaces.map(s => s.id === currentSpace.id ? { ...s, name: editNameValue.trim() } : s))
+    supabase.channel(`space-presence:${currentSpace.id}`).send({
+      type: 'broadcast',
+      event: 'room_rename',
+      payload: { name: editNameValue.trim() },
+    })
     setEditingName(false)
     setRenameConfirm(null)
   }
@@ -121,6 +126,11 @@ export default function SettingsPanel() {
     await supabase.from('messages').delete().eq('space_id', currentSpace.id)
     await supabase.from('spaces').update({ context_window_used: 0 }).eq('id', currentSpace.id)
     setMessages([])
+    supabase.channel(`space-presence:${currentSpace.id}`).send({
+      type: 'broadcast',
+      event: 'chat_reset',
+      payload: { spaceId: currentSpace.id },
+    })
   }
 
   const handleDeleteSpace = async (): Promise<void> => {
@@ -164,7 +174,16 @@ export default function SettingsPanel() {
     }).then(({ error }) => {
       if (error) debugLog({ level: 'warn', source: 'settings', message: 'Leave system message failed', details: error })
     })
-    await supabase.from('space_members').delete().eq('space_id', currentSpace.id).eq('user_id', profile.id)
+    const { error: leaveError } = await supabase
+      .from('space_members')
+      .delete()
+      .eq('space_id', currentSpace.id)
+      .eq('user_id', profile.id)
+    if (leaveError) {
+      debugLog({ level: 'error', source: 'settings', message: 'Leave failed to remove membership', details: leaveError })
+      toast('Leave failed — try again.')
+      return
+    }
     const { data: remain } = await supabase.from('space_members').select('space_id').eq('user_id', profile.id).eq('blacklisted', false).neq('space_id', currentSpace.id)
     let nextSpace = null
     if (remain && remain.length > 0) { const { data: next } = await supabase.from('spaces').select('*').eq('id', remain[0].space_id).maybeSingle(); nextSpace = next }

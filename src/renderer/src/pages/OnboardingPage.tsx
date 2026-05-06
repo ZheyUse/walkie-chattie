@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth.store'
 import { debugLog } from '../lib/debug'
+import { assetPath } from '../lib/assets'
 
 const AVATAR_COLORS = [
   '#1a9fff', '#e8652a', '#4db35e', '#9b59b6',
@@ -103,7 +104,7 @@ export default function OnboardingPage() {
         className="relative z-10 bg-bg-panel border border-border-md rounded-modal p-8 w-80 flex flex-col gap-6 shadow-2xl"
       >
         <div className="flex flex-col items-center gap-2">
-          <div className="text-4xl">👋</div>
+          <img src={assetPath("resources/icons/icon2.svg")} alt="Logo" className="w-16 h-16" />
           <h2 className="font-display font-bold text-xl text-text-hi">Choose your nickname</h2>
           <p className="text-text-lo text-xs text-center">This is how others see you in Spaces</p>
         </div>
@@ -128,7 +129,7 @@ export default function OnboardingPage() {
         {error && availStatus === 'taken' && !saving && (
           <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-input px-3 py-2">{error}</p>
         )}
-        <button type="submit" disabled={!isValid || saving} className="btn-primary py-3 text-base disabled:opacity-40">
+        <button type="submit" disabled={!isValid || saving} className="btn-primary py-3 text-base text-white disabled:opacity-40">
           {saving ? 'Setting up…' : 'Continue'}
         </button>
       </form>

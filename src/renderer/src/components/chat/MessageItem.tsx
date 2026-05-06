@@ -112,10 +112,17 @@ function ActionBarTooltip({ label, flipUp = false, children }: { label: string; 
 export default function MessageItem({ msg, showAvatar = true, showNickname = true, showTimestamp = false }: Props) {
   const { profile } = useAuthStore()
   const currentSpace = useSpaceStore(s => s.currentSpace)
+  const members = useSpaceStore(s => s.members)
   const retryMessage = useChatStore(s => s.retryMessage)
   const toggleReaction = useChatStore(s => s.toggleReaction)
   const setEditingMessage = useChatStore(s => s.setEditingMessage)
   const removeMessage = useChatStore(s => s.removeMessage)
+  const setReplyingTo = useChatStore(s => s.setReplyingTo)
+  const messages = useChatStore(s => s.messages)
+
+  // Resolve display_name for this sender in the current space (per-space nickname, Discord-style)
+  const senderMember = currentSpace ? members.find(m => m.user_id === msg.sender_id && m.space_id === currentSpace.id) : null
+  const senderName = senderMember?.display_name?.trim() || msg.sender_nickname
 
   const [hovered, setHovered] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -127,6 +134,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
   const [nearTop, setNearTop] = useState(false)
 
   const isOwn = msg.sender_id === profile?.id
+  const replyTarget = msg.reply_to ? messages.find(m => m.id === msg.reply_to) : null
 
   useEffect(() => {
     if (!showMoreMenu && !showEmojiPicker) return
@@ -191,17 +199,52 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
     setShowMoreMenu(false)
   }
 
+  const renderReplyPreview = () => {
+    if (!msg.reply_to) return null
+    if (!replyTarget) return null
+    const replySenderMember = replyTarget ? members.find(m => m.user_id === replyTarget.sender_id && m.space_id === currentSpace?.id) : null
+    const replySenderName = replySenderMember?.display_name?.trim() || replyTarget.sender_nickname || 'message'
+    const previewText = replyTarget.content || (replyTarget.gif_url ? 'GIF' : replyTarget.image_url ? 'Image' : 'Message')
+
+    const handleJumpToReply = () => {
+      const list = document.querySelector('[data-msg-id="' + replyTarget.id + '"]')
+      if (list) {
+        list.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        list.classList.add('ring-2', 'ring-accent/40')
+        setTimeout(() => list.classList.remove('ring-2', 'ring-accent/40'), 1500)
+      } else {
+        document.querySelector('[data-msg-list]')?.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    }
+
+    return (
+      <div
+        className='mb-1.5 px-2 py-1 rounded-md cursor-pointer transition-opacity hover:opacity-80'
+        style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)' }}
+        onClick={handleJumpToReply}
+      >
+        <div className='text-[10px] font-display' style={{ color: 'rgba(196,181,253,0.9)' }}>
+          Replying to {replySenderName}
+        </div>
+        <div className='text-[11px] font-body truncate' style={{ color: 'rgba(232,234,237,0.75)' }}>
+          {previewText}
+        </div>
+      </div>
+    )
+  }
+
   const renderBubble = () => {
     if (msg.type === 'shout') {
       return (
         <div
           onClick={() => {
             if (!profile) return
-            window.api.showShout({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined, spaceName: currentSpace?.name, spaceIcon: currentSpace?.avatar_emoji })
+            window.api.showShout({ sender: senderName, message: msg.content || '', gifUrl: msg.gif_url || undefined, spaceName: currentSpace?.name, spaceIcon: currentSpace?.avatar_emoji })
           }}
           className='px-3.5 py-2 rounded-xl rounded-tl-none cursor-pointer hover:opacity-90'
           style={{ background: 'linear-gradient(135deg, rgba(232,101,42,0.18) 0%, rgba(180,50,20,0.1) 100%)', border: '1px solid rgba(232,101,42,0.25)', borderLeft: '3px solid rgba(232,101,42,0.6)' }}
         >
+          {renderReplyPreview()}
           <div className={"text-shout font-display font-bold " + shoutFont(msg.content || '')} style={{ textShadow: '0 0 20px rgba(232,101,42,0.3)' }}>{msg.content}</div>
         </div>
       )
@@ -211,11 +254,12 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
         <div
           onClick={() => {
             if (!profile) return
-            window.api.showTap({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined })
+            window.api.showTap({ sender: senderName, message: msg.content || '', gifUrl: msg.gif_url || undefined })
           }}
           className='px-3.5 py-2 rounded-xl rounded-tl-none cursor-pointer hover:opacity-90'
           style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(109,40,217,0.06) 100%)', border: '1px solid rgba(139,92,246,0.2)', borderLeft: '3px solid rgba(139,92,246,0.5)' }}
         >
+          {renderReplyPreview()}
           <div style={{ color: 'rgba(167,139,250,0.85)', fontSize: '0.8125rem' }} className='font-body italic line-clamp-3'>{msg.content}</div>
         </div>
       )
@@ -225,6 +269,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
         className='px-3.5 py-2.5 rounded-xl rounded-tl-none'
         style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)' }}
       >
+        {renderReplyPreview()}
         {msg.gif_url && <img src={msg.gif_url} alt='GIF' className='max-h-48 rounded-lg object-contain mb-1.5' />}
         {msg.image_url && <img src={msg.image_url} alt='Image' className='max-h-64 rounded-lg object-contain mb-1.5 cursor-pointer' style={{ opacity: 0.9 }} />}
         {msg.content && <p className='text-sm font-body whitespace-pre-wrap break-words leading-relaxed' style={{ color: 'rgba(232,234,237,0.92)' }}>{renderContent(msg.content)}</p>}
@@ -277,7 +322,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
       {/* Avatar */}
       <div className='flex-shrink-0' style={{ width: '40px', paddingTop: '2px' }}>
         {showAvatar ? (
-          <Avatar nickname={msg.sender_nickname} picture={avatarPicture} color={avatarColor} size='md' />
+          <Avatar nickname={senderName} picture={avatarPicture} color={avatarColor} size='md' />
         ) : (
           <div style={{ width: '40px' }} />
         )}
@@ -290,7 +335,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
           <div className='flex items-baseline gap-2 mb-0.5'>
             {showNickname && (
               <span className='text-sm font-display font-semibold' style={{ color: 'rgba(232,234,237,0.95)' }}>
-                {msg.sender_nickname}
+                {senderName}
               </span>
             )}
             {showTimestamp && (
@@ -428,17 +473,19 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
           )}
         </div>
 
-        {/* Reply (others) / Edit (own) */}
-        {!isOwn ? (
-          <ActionBarTooltip label='Reply' flipUp={!nearTop}>
-            <button
-              className='w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer'
-              style={{ background: 'rgba(9,11,20,0.6)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,234,237,0.5)' }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>reply</span>
-            </button>
-          </ActionBarTooltip>
-        ) : (
+        {/* Reply */}
+        <ActionBarTooltip label='Reply' flipUp={!nearTop}>
+          <button
+            onClick={() => setReplyingTo(msg)}
+            className='w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer'
+            style={{ background: 'rgba(9,11,20,0.6)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,234,237,0.5)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>reply</span>
+          </button>
+        </ActionBarTooltip>
+
+        {/* Edit (own) */}
+        {isOwn && (
           <ActionBarTooltip label='Edit' flipUp={!nearTop}>
             <button
               onClick={handleEdit}

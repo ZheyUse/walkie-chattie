@@ -16,7 +16,8 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
   const atAllMatch = 'all'.startsWith(queryLower)
 
   const filtered = members.filter(function(m) {
-    return m.nickname.toLowerCase().includes(queryLower)
+    const displayName = (m.display_name?.trim() || m.nickname).toLowerCase()
+    return displayName.includes(queryLower)
   })
 
   // Full list including @all as virtual first item
@@ -52,7 +53,7 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
       const item = allItems[selectedIndex]
       if (!item) return
       if (item.type === 'all') onSelect('__bold__@all')
-      else onSelect(item.member.nickname)
+      else onSelect(item.member.display_name?.trim() || item.member.nickname)
     }
   }
 
@@ -87,7 +88,7 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
             onMouseDown={function(e) {
               e.preventDefault()
               if (isAll) onSelect('__bold__@all')
-              else onSelect(m!.nickname)
+              else onSelect(m!.display_name?.trim() || m!.nickname)
             }}
             onMouseEnter={() => setSelectedIndex(i)}
             className="w-full px-3 py-2 flex items-center gap-2 transition-colors text-left"
@@ -118,7 +119,7 @@ export default function WhisperSuggest({ query, members, onSelect, onClose }: Pr
                   className="text-sm font-body flex-1 truncate"
                   style={{ color: i === selectedIndex ? 'rgba(232,234,237,1)' : 'rgba(232,234,237,0.8)' }}
                 >
-                  {m!.nickname}
+                  {m!.display_name?.trim() || m!.nickname}
                 </span>
                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{
                   background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',

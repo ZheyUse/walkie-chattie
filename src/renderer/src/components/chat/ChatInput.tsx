@@ -1,4 +1,4 @@
-import 'material-symbols'
+﻿import 'material-symbols'
 import { useState, useRef, useCallback, useEffect } from "react"
 import { supabase } from "../../lib/supabase"
 import { useAuthStore } from "../../stores/auth.store"
@@ -47,6 +47,8 @@ export default function ChatInput() {
   const setPendingGif = useChatStore(s => s.setPendingGif)
   const editingMessage = useChatStore(s => s.editingMessage)
   const setEditingMessage = useChatStore(s => s.setEditingMessage)
+  const replyingTo = useChatStore(s => s.replyingTo)
+  const setReplyingTo = useChatStore(s => s.setReplyingTo)
   const updateMessageContent = useChatStore(s => s.updateMessageContent)
   const members = useSpaceStore(s => s.members)
   const currentSpace = useSpaceStore(s => s.currentSpace)
@@ -98,12 +100,30 @@ export default function ChatInput() {
     setValue('')
   }
 
+  const cancelReply = () => {
+    setReplyingTo(null)
+  }
+
   const detectCommand = (text: string) => {
-    if (text.startsWith("/shout ")) return "shout"
-    if (text.startsWith("/tap ")) return "tap"
-    if (text.startsWith("/kick ")) return "kick"
-    if (text.startsWith("/all ")) return "all"
-    return "chat"
+    if (!text.startsWith('/')) return 'chat'
+    const command = text.slice(1).split(/\s+/)[0].toLowerCase()
+    if (command === 'shout') return 'shout'
+    if (command === 'tap') return 'tap'
+    if (command === 'kick') return 'kick'
+    if (command === 'all') return 'all'
+    if (command === 'nickname') return 'nickname'
+
+    return 'chat'
+  }
+
+  const normalizeName = (raw: string) => raw.trim().toLowerCase().replace(/\s+/g, '')
+  const findMemberByName = (raw: string) => {
+    const needle = normalizeName(raw)
+    return members.find(m => {
+      const displayKey = m.display_name ? normalizeName(m.display_name) : ''
+      const nicknameKey = normalizeName(m.nickname)
+      return displayKey === needle || nicknameKey === needle
+    })
   }
 
   const doInsertMessage = useCallback(async (
@@ -136,9 +156,9 @@ export default function ChatInput() {
     let theContent = trimmed
     let targetUserId: string | null = null
     let targetNickname: string | null = null
-    if (cmd === "shout") theContent = trimmed.slice(7)
+    if (cmd === "shout") theContent = trimmed.replace(/^\/shout\s+/, '')
     if (cmd === "tap") {
-      theContent = trimmed.slice(5)
+      theContent = trimmed.replace(/^\/tap\s+/, '')
       debugLog({ source: "chat", message: "Tap after slice", details: { content: theContent } })
       let rawTapNick = ''
       const mentionMatch = theContent.match(/^@(\S+)\s+/)
@@ -148,7 +168,7 @@ export default function ChatInput() {
         debugLog({ source: "chat", message: "Tap mention parsed", details: { rawNick, membersCount: members.length, firstMember: members[0] } })
 
         // Try local members list first. Members are flattened in the space store.
-        const targetMember = members.find(m => m.nickname.toLowerCase() === rawNick.toLowerCase())
+        const targetMember = findMemberByName(rawNick)
         debugLog({ source: "chat", message: "Tap local lookup", details: {
           matched: !!targetMember,
           targetUserId: targetMember?.user_id,
@@ -184,28 +204,57 @@ export default function ChatInput() {
       }
     }
     if (cmd === "kick") {
-      theContent = trimmed.slice(6)
+      theContent = trimmed.replace(/^\/kick\s+/, '')
       const mentionMatch = theContent.match(/^@(\S+)/)
       if (!mentionMatch) { toast('Use /kick @username'); return }
       const rawNick = mentionMatch[1]
       const isAdmin = currentSpace?.owner_id === profile?.id
       if (!isAdmin) { toast('Only admins can kick members'); return }
-      const targetMember = members.find(m => m.nickname.toLowerCase() === rawNick.toLowerCase())
+      const targetMember = findMemberByName(rawNick)
       if (!targetMember) { toast(`Member "${rawNick}" not found`); return }
       if (targetMember.user_id === profile?.id) { toast("You can't kick yourself"); return }
-      await supabase.from('space_members').delete().eq('space_id', currentSpace.id).eq('user_id', targetMember.user_id)
+      const { error: kickError } = await supabase
+        .from('space_members')
+        .delete()
+        .eq('space_id', currentSpace.id)
+        .eq('user_id', targetMember.user_id)
+      if (kickError) {
+        debugLog({ level: 'error', source: 'chat', message: 'Kick failed to remove member', details: kickError })
+        toast('Kick failed â€” try again.')
+        return
+      }
+      const displayName = targetMember.display_name?.trim() || targetMember.nickname
       await supabase.from('messages').insert({
         space_id: currentSpace.id,
         sender_id: profile.id,
         sender_nickname: profile.nickname,
         type: 'system',
-        content: `${profile.nickname} removed ${targetMember.nickname} from the space`,
+        content: `${profile.nickname} removed ${displayName} from the space`,
       })
-      toast(`${targetMember.nickname} has been removed`)
+      toast(`${displayName} has been removed`)
       setValue("")
       return
     }
-    if (cmd === "all") theContent = trimmed.slice(5)
+    if (cmd === "all") theContent = trimmed.replace(/^\/all\s+/, '')
+
+    if (cmd === "nickname") {
+      const newName = trimmed.replace(/^\/nickname\s+/, '').trim()
+      if (!newName) { toast('Use /nickname your-name'); return }
+      const { error } = await supabase
+        .from('space_members')
+        .update({ display_name: newName })
+        .eq('space_id', currentSpace.id)
+        .eq('user_id', profile.id)
+      if (error) {
+        debugLog({ level: 'error', source: 'chat', message: 'Nickname update failed', details: error })
+        toast('Nickname update failed')
+        return
+      }
+      useSpaceStore.getState().setMembers(members.map(m => m.user_id === profile.id ? { ...m, display_name: newName } : m))
+      toast('Nickname updated')
+      setValue('')
+      return
+    }
 
     const tempId = `temp-${Date.now()}-${Math.random()}`
 
@@ -218,6 +267,11 @@ export default function ChatInput() {
       const up = await supabase.storage.from("space-images").upload(path2, pendingImage)
       if (up.error) {
         debugLog({ level: "error", source: "chat", message: "Image upload failed", details: up.error })
+        toast('Image upload failed. Please try again.')
+        setValue("")
+        setPendingImage(null)
+        setPendingGif(null, null)
+        setReplyingTo(null)
         return
       }
       imageUrl = supabase.storage.from("space-images").getPublicUrl(path2).data.publicUrl
@@ -234,6 +288,7 @@ export default function ChatInput() {
       image_url: imageUrl || null,
       gif_url: pendingGifUrl || null,
       target_user_id: targetUserId,
+      reply_to: replyingTo?.id ?? null,
       target_nickname: targetNickname,
       created_at: new Date().toISOString(),
       status: 'sending' as const,
@@ -249,6 +304,7 @@ export default function ChatInput() {
       image_url: imageUrl || null,
       gif_url: pendingGifUrl || null,
       target_user_id: targetUserId,
+      reply_to: replyingTo?.id ?? null,
     }
 
     const insertId = await doInsertMessage(tempId, payload)
@@ -302,13 +358,14 @@ export default function ChatInput() {
       setValue("")
       setPendingImage(null)
       setPendingGif(null, null)
+      setReplyingTo(null)
       textareaRef.current?.focus()
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
       playSound('sent')
     }
-  }, [value, pendingImage, pendingGifUrl, currentSpace, profile, members, prependMessage, doInsertMessage, setPendingImage, setPendingGif])
+  }, [value, pendingImage, pendingGifUrl, currentSpace, profile, members, replyingTo, prependMessage, doInsertMessage, setPendingImage, setPendingGif, setReplyingTo])
 
   // Auto-resize textarea height based on content
   useEffect(() => {
@@ -336,12 +393,13 @@ export default function ChatInput() {
       if (atAllMatch) {
         handleMentionSelect('__bold__@all')
       } else {
-        const match = members.find(m => m.nickname.toLowerCase().includes(queryLower))
-        if (match) handleMentionSelect(match.nickname)
+        const match = members.find(m => (m.display_name?.trim() || m.nickname).toLowerCase().includes(queryLower))
+        if (match) handleMentionSelect(match.display_name?.trim() || match.nickname)
       }
     }
     if (e.key === "Escape") {
       cancelEdit()
+      cancelReply()
     }
   }
 
@@ -361,9 +419,8 @@ export default function ChatInput() {
     } else { setMentionActive(false) }
 
     // Detect /command
-    const lastSlash = e.target.value.lastIndexOf("/", cursor - 1)
-    if (lastSlash >= 0 && (lastSlash === 0 || /[\s\n]/.test(e.target.value[lastSlash - 1]))) {
-      const q = e.target.value.slice(lastSlash + 1, cursor)
+    if (e.target.value.startsWith("/")) {
+      const q = e.target.value.slice(1, cursor)
       if (!q.includes(" ") && !q.includes("\n")) {
         setCmdQuery(q); setCmdActive(true)
         setMentionActive(false)
@@ -423,6 +480,21 @@ export default function ChatInput() {
   const hasContent = value.trim() || pendingImage || pendingGifUrl
   const sendDisabled = !hasContent || !currentSpace || !profile
 
+  // Global Enter handler — fires even when textarea/GIF picker/sticker panel doesn't have focus
+  useEffect(() => {
+    const onGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.shiftKey || e.defaultPrevented) return
+      const active = document.activeElement
+      // Only handle if focus is NOT on a text input (textarea handles itself)
+      if (active?.tagName === "TEXTAREA" || active?.tagName === "INPUT") return
+      if (!hasContent || !currentSpace || !profile) return
+      e.preventDefault()
+      send()
+    }
+    window.addEventListener("keydown", onGlobalKeyDown)
+    return () => window.removeEventListener("keydown", onGlobalKeyDown)
+  }, [hasContent, currentSpace, profile])
+
   return (
     <div className="flex-shrink-0 border-t border-border-lo p-3 bg-bg-panel">
       {/* Image / GIF preview bar */}
@@ -443,6 +515,30 @@ export default function ChatInput() {
         </div>
       )}
 
+      {replyingTo && (
+        <div className="mb-2 flex items-center gap-2 px-2 py-1.5 rounded-lg"
+          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'rgba(139,92,246,0.8)' }}>reply</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-display" style={{ color: 'rgba(196,181,253,0.9)' }}>
+              Replying to {replyingTo.sender_nickname}
+            </div>
+            <div className="text-xs font-body truncate" style={{ color: 'rgba(232,234,237,0.7)' }}>
+              {replyingTo.content || (replyingTo.gif_url ? 'GIF' : replyingTo.image_url ? 'Image' : 'Message')}
+            </div>
+          </div>
+          <button
+            onClick={cancelReply}
+            className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+            style={{ color: 'rgba(232,234,237,0.6)' }}
+            aria-label="Cancel reply"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+          </button>
+        </div>
+      )}
+
       {/* Input row */}
       <div className="relative">
         <div
@@ -452,7 +548,7 @@ export default function ChatInput() {
           onDragLeave={() => { setDragging(false) }}
           onDrop={handleDrop}
         >
-        {/* ── Attachment button ── */}
+        {/* â”€â”€ Attachment button â”€â”€ */}
         <Tooltip label="Attach file">
           <button
             onClick={() => { closeAllPopovers(); fileRef.current?.click() }}
@@ -476,7 +572,7 @@ export default function ChatInput() {
           }}
         />
 
-        {/* ── GIF button ── */}
+        {/* â”€â”€ GIF button â”€â”€ */}
         <div className="relative">
           <Tooltip label="GIF">
             <button
@@ -493,7 +589,7 @@ export default function ChatInput() {
           )}
         </div>
 
-        {/* ── Stickers button ── */}
+        {/* â”€â”€ Stickers button â”€â”€ */}
         <div className="relative">
           <Tooltip label="Stickers">
             <button
@@ -510,7 +606,7 @@ export default function ChatInput() {
           )}
         </div>
 
-        {/* ── Emoji button ── */}
+        {/* â”€â”€ Emoji button â”€â”€ */}
         <div className="relative">
           <Tooltip label="Emoji">
             <button
@@ -530,7 +626,7 @@ export default function ChatInput() {
         {/* Separator */}
         <div className="w-px h-7 bg-border-lo mx-0.5 self-center flex-shrink-0" />
 
-        {/* ── Textarea ── */}
+        {/* â”€â”€ Textarea â”€â”€ */}
         <textarea
           ref={textareaRef}
           value={value}
@@ -542,6 +638,20 @@ export default function ChatInput() {
           className="flex-1 bg-transparent text-text-hi text-sm font-body placeholder-text-lo focus:outline-none resize-none py-2 pr-2 scrollbar-thin"
           style={{ minHeight: '36px', maxHeight: '160px', overflowY: 'auto' }}
         />
+
+        <Tooltip label={editingMessage ? 'Save edit' : 'Send'}>
+          <button
+            onClick={() => { if (editingMessage) submitEdit(); else send() }}
+            disabled={sendDisabled}
+            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded transition-colors"
+            style={{
+              color: sendDisabled ? 'rgba(232,234,237,0.35)' : 'rgba(232,234,237,0.9)',
+            }}
+            aria-label="Send message"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>send</span>
+          </button>
+        </Tooltip>
       </div>
 
       {/* Editing indicator */}
@@ -584,7 +694,7 @@ export default function ChatInput() {
       <div className="flex justify-between items-center mt-1 px-1">
         <p className="text-text-lo text-xs">
           <kbd className="font-body text-[10px] bg-bg-surface border border-border-lo rounded px-1">Enter</kbd>
-          {' '}to send ·{' '}
+          {' '}to send Â·{' '}
           <kbd className="font-body text-[10px] bg-bg-surface border border-border-lo rounded px-1">Shift+Enter</kbd>
           {' '}for new line
         </p>

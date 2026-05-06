@@ -39,13 +39,25 @@ export default function TypingIndicator() {
           30% { transform: translateY(-4px); opacity: 1; }
         }
       `}</style>
-      <div className="px-4 py-1.5 flex items-center justify-end gap-1.5">
-        <div className="flex items-center gap-0.5 h-4">
-          <TypingDot delay={0} />
-          <TypingDot delay={160} />
-          <TypingDot delay={320} />
+      {/* Outer wrapper — no layout impact, just anchors the absolute child */}
+      <div className="relative h-4 px-4">
+        {/* Floating pill — absolute, floats above the chat input */}
+        <div
+          className="absolute bottom-full right-0 mb-1 flex items-center gap-1.5 px-3 py-1 rounded-full"
+          style={{
+            background: 'rgba(20, 26, 46, 0.9)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(139, 92, 246, 0.2)',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+          }}
+        >
+          <div className="flex items-center gap-0.5 h-4">
+            <TypingDot delay={0} />
+            <TypingDot delay={160} />
+            <TypingDot delay={320} />
+          </div>
+          <span className="text-xs italic" style={{ color: 'rgba(139,92,246,0.6)' }}>{label}</span>
         </div>
-        <span className="text-xs italic text-right" style={{ color: 'rgba(139,92,246,0.5)' }}>{label}</span>
       </div>
     </>
   )
