@@ -399,6 +399,18 @@ app.whenReady().then(() => {
   // IPC: check if window is focused (used by renderer to decide in-app vs OS notification)
   ipcMain.handle("is-window-focused", () => mainWindow?.isFocused() ?? false)
 
+  // IPC: download a pending update (triggered when user clicks "Update" in the banner)
+  ipcMain.handle("download-update", async () => {
+    try {
+      addDebugLog("info", "updater", "User triggered manual download")
+      await autoUpdater.downloadUpdate()
+      return { success: true }
+    } catch (err) {
+      addDebugLog("error", "updater", "downloadUpdate failed", err)
+      return { success: false, error: String(err) }
+    }
+  })
+
   // IPC: install downloaded update and restart
   ipcMain.on("restart-to-update", () => {
     isQuitting = true

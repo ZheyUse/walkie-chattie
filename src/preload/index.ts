@@ -80,8 +80,9 @@ const api = {
 
   // Auto-updater
   restartToUpdate: () => ipcRenderer.send('restart-to-update'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
   onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => void) => {
-    const listener = (_: Electron.IpcRendererEvent, data: { status: string; version?: string; percent?: number }) => callback(data)
+    const listener = (_: Electron.IpcRendererEvent, data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => callback(data)
     ipcRenderer.on('update-status', listener)
     return () => ipcRenderer.removeListener('update-status', listener)
   },

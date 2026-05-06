@@ -46,6 +46,7 @@ interface Window {
     }) => void) => () => void
     // Auto-updater
     restartToUpdate: () => void
+    downloadUpdate: () => Promise<{ success: boolean; error?: string }>
     onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => void) => () => void
   }
 }

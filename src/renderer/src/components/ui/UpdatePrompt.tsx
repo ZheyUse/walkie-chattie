@@ -187,6 +187,15 @@ function RestartModal({ version, onRestart }: { version: string; onRestart: () =
 // ── Update available banner ───────────────────────────────────────────────────
 
 function UpdateBanner({ version, onUpdate, dismiss }: { version: string; onUpdate: () => void; dismiss: () => void }) {
+  const [downloading, setDownloading] = useState(false)
+
+  const handleUpdate = () => {
+    if (downloading) return
+    setDownloading(true)
+    onUpdate()
+    window.api.downloadUpdate()
+  }
+
   return (
     <div className="fixed top-5 left-1/2 z-[120] -translate-x-1/2 px-4 w-full max-w-sm pointer-events-none">
       <div
@@ -207,33 +216,50 @@ function UpdateBanner({ version, onUpdate, dismiss }: { version: string; onUpdat
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'rgba(167,139,250,0.9)' }}>
-            new_releases
+            downloading
           </span>
         </div>
 
-        <p className="flex-1 text-sm font-display font-bold leading-tight" style={{ color: 'rgba(232,234,237,0.96)' }}>
-          Astra v{version} is available
-        </p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-display font-bold leading-tight" style={{ color: 'rgba(232,234,237,0.96)' }}>
+            Astra v{version} is available
+          </p>
+          {downloading && (
+            <p className="text-[10px] font-body" style={{ color: 'rgba(160,170,184,0.5)' }}>
+              Downloading…
+            </p>
+          )}
+        </div>
 
         <button
-          onClick={onUpdate}
-          className="px-3 py-1.5 rounded-lg text-xs font-display font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] flex-shrink-0"
+          onClick={handleUpdate}
+          disabled={downloading}
+          className="px-3 py-1.5 rounded-lg text-xs font-display font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] flex-shrink-0 disabled:opacity-50"
           style={{
             color: '#fff',
             background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
             boxShadow: '0 2px 10px rgba(139,92,246,0.35)',
           }}
         >
-          Update
+          {downloading ? (
+            <span className="flex items-center gap-1">
+              <span className="material-symbols-outlined animate-spin" style={{ fontSize: '11px' }}>sync</span>
+              Downloading
+            </span>
+          ) : (
+            'Update'
+          )}
         </button>
 
-        <button
-          onClick={dismiss}
-          className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors hover:bg-white/[0.06]"
-          style={{ color: 'rgba(160,170,184,0.4)' }}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>close</span>
-        </button>
+        {!downloading && (
+          <button
+            onClick={dismiss}
+            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors hover:bg-white/[0.06]"
+            style={{ color: 'rgba(160,170,184,0.4)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>close</span>
+          </button>
+        )}
       </div>
       <style>{`
         @keyframes update-slide-up {
