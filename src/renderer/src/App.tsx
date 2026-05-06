@@ -10,6 +10,7 @@ import RoomModal from "./components/modals/RoomModal"
 import ToastContainer from "./components/ui/ToastContainer"
 import Loader from "./components/ui/Loader"
 import InAppNotification from "./components/ui/InAppNotification"
+import UpdatePrompt from "./components/ui/UpdatePrompt"
 import ShoutPopup from "./components/popups/ShoutPopup"
 import TapPopup from "./components/popups/TapPopup"
 import BroadcastPopup from "./components/popups/BroadcastPopup"
@@ -570,28 +571,34 @@ export default function App() {
   if (popupType === "broadcast") return <BroadcastPopup />
 
   if (isLoadingScreen) {
-    return <div className="h-screen bg-bg-deep flex items-center justify-center">
-      <div className="flex flex-col items-center gap-6">
-        <Loader />
-        <div className="text-accent font-display text-xl animate-pulse">Loading...</div>
-        {loadingReasons[0] && (
-          <div className="text-text-lo text-xs max-w-md text-center">
-            Waiting because {loadingReasons[0]}.
+    return (
+      <>
+        <div className="h-screen bg-bg-deep flex items-center justify-center">
+          <div className="flex flex-col items-center gap-6">
+            <Loader />
+            <div className="text-accent font-display text-xl animate-pulse">Loading...</div>
+            {loadingReasons[0] && (
+              <div className="text-text-lo text-xs max-w-md text-center">
+                Waiting because {loadingReasons[0]}.
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+        <UpdatePrompt />
+      </>
+    )
   }
 
-  if (!user) return <AuthPage />
-  if (!profile) return <OnboardingPage />
-  if (!currentSpace) return <RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={false} />
-  if (joinOrCreateModalOpen) return <RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={true} />
+  if (!user) return <><AuthPage /><UpdatePrompt /></>
+  if (!profile) return <><OnboardingPage /><UpdatePrompt /></>
+  if (!currentSpace) return <><RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={false} /><UpdatePrompt /></>
+  if (joinOrCreateModalOpen) return <><RoomModal onClose={() => setJoinOrCreateModalOpen(false)} closable={true} /><UpdatePrompt /></>
   return (
     <>
       <DashboardPage />
       <ToastContainer />
       <InAppNotification />
+      <UpdatePrompt />
     </>
   )
 }
