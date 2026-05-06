@@ -51,9 +51,22 @@ export default function DebugPage() {
   const [copiedAll, setCopiedAll] = useState(false)
   const [cleared, setCleared] = useState(false)
   const [showIconPreview, setShowIconPreview] = useState(false)
+  const [apiAvailable, setApiAvailable] = useState(true)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   useEffect(() => {
-    window.api.getDebugLogs().then((entries) => setLogs(dedupeLogs(entries)))
+    if (!window.api) {
+      setApiAvailable(false)
+      setApiError("Debug API was not injected. The preload script may not have loaded.")
+      return
+    }
+
+    window.api.getDebugLogs()
+      .then((entries) => setLogs(dedupeLogs(entries)))
+      .catch((error) => {
+        setApiError(String(error))
+      })
+
     return window.api.onDebugLog((entry) => {
       setLogs((current) => dedupeLogs([...current, entry]).slice(-1000))
     })
@@ -113,6 +126,22 @@ export default function DebugPage() {
   const copiedText = showFilteredCount
     ? `Copied ${filtered.length} (filtered)`
     : `Copied ${filtered.length}`
+
+  if (!apiAvailable) {
+    return (
+      <div className="h-screen bg-bg-deep text-text-hi flex items-center justify-center">
+        <div className="max-w-lg text-center px-6 py-6 rounded-xl border border-border-lo bg-bg-panel">
+          <h1 className="font-display text-lg">Debug Window Failed</h1>
+          <p className="text-sm text-text-lo mt-2">The debug API is unavailable in this window.</p>
+          {apiError && (
+            <pre className="mt-4 text-xs text-text-md bg-bg-deep border border-border-lo rounded-lg p-3 whitespace-pre-wrap break-words">
+              {apiError}
+            </pre>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen bg-bg-deep text-text-hi flex flex-col overflow-hidden">

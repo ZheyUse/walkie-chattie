@@ -1,5 +1,6 @@
 import 'material-symbols'
 import { useEffect, useState, useRef } from 'react'
+import { debugLog } from '../../lib/debug'
 
 type UpdateStatus =
   | { status: 'available'; version: string }
@@ -189,11 +190,27 @@ function RestartModal({ version, onRestart }: { version: string; onRestart: () =
 function UpdateBanner({ version, onUpdate, dismiss }: { version: string; onUpdate: () => void; dismiss: () => void }) {
   const [downloading, setDownloading] = useState(false)
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (downloading) return
     setDownloading(true)
     onUpdate()
-    window.api.downloadUpdate()
+    debugLog({ source: 'updater', message: 'Update button clicked in renderer' })
+
+    try {
+      const result = await window.api.downloadUpdate()
+      if (!result?.success) {
+        debugLog({
+          level: 'error',
+          source: 'updater',
+          message: 'downloadUpdate returned failure',
+          details: result?.error ?? 'Unknown error',
+        })
+        setDownloading(false)
+      }
+    } catch (error) {
+      debugLog({ level: 'error', source: 'updater', message: 'downloadUpdate threw in renderer', details: error })
+      setDownloading(false)
+    }
   }
 
   return (
@@ -281,7 +298,7 @@ export default function UpdatePrompt() {
 
   useEffect(() => {
     if (!window.api?.onUpdateStatus) return
-    return window.api.onUpdateStatus((data) => {
+    const applyUpdateStatus = (data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => {
       const s = data.status as UpdateStatus['status']
 
       if (s === 'available') {
@@ -294,7 +311,7 @@ export default function UpdatePrompt() {
         setShowProgress(true)
         setUpdateState({
           status: 'downloading',
-          version: data.version!,
+          version: data.version ?? 'unknown',
           percent: data.percent ?? 0,
           transferred: data.transferred ?? 0,
           total: data.total ?? 0,
@@ -303,9 +320,16 @@ export default function UpdatePrompt() {
         const v = data.version!
         setShowProgress(false)
         setShowRestartModal(true)
+        setUpdateState({ status: 'ready', version: v })
         dismissedRef.current = v
       }
+    }
+
+    window.api.getUpdateStatus?.().then((status) => {
+      if (status) applyUpdateStatus(status)
     })
+
+    return window.api.onUpdateStatus((data) => applyUpdateStatus(data))
   }, [])
 
   const currentVersion = updateState?.status === 'available' ? updateState.version : undefined

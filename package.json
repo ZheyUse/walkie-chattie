@@ -1,6 +1,6 @@
 {
   "name": "astra",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "Astra — Steam-dark desktop chat app",
   "main": "./out/main/index.js",
   "author": "Codez",
@@ -50,6 +50,7 @@
   "build": {
     "appId": "com.astra.app",
     "productName": "Astra",
+    "artifactName": "${productName}.Setup.${version}.${ext}",
     "asar": true,
     "directories": {
       "output": "out/make/${version}",

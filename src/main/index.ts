@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, Notification } from "electron"
+import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, Notification, globalShortcut } from "electron"
 import { join, resolve } from "path"
 import { autoUpdater } from "electron-updater"
 
@@ -14,6 +14,7 @@ let tray: Tray | null = null
 let isQuitting = false
 let pendingOAuthUrl: string | null = null
 let startInBackground = false
+let lastUpdateStatus: UpdateStatusPayload | null = null
 
 type DebugLevel = "info" | "warn" | "error"
 
@@ -24,6 +25,14 @@ type DebugLogEntry = {
   source: string
   message: string
   details?: unknown
+}
+
+type UpdateStatusPayload = {
+  status: "available" | "downloading" | "ready"
+  version?: string
+  percent?: number
+  transferred?: number
+  total?: number
 }
 
 const debugLogs: DebugLogEntry[] = []
@@ -63,8 +72,17 @@ function addDebugLog(level: DebugLevel, source: string, message: string, details
   return entry
 }
 
+function broadcastUpdateStatus(payload: UpdateStatusPayload) {
+  lastUpdateStatus = payload
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("update-status", payload)
+  }
+}
+
 function getWindowUrl(route = "") {
-  const hashRoute = route ? "/#" + route : ""
+  const cleanedRoute = route.replace(/^#/, "")
+  const normalizedRoute = cleanedRoute ? (cleanedRoute.startsWith("/") ? cleanedRoute : "/" + cleanedRoute) : ""
+  const hashRoute = normalizedRoute ? "#" + normalizedRoute : ""
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
     return process.env.ELECTRON_RENDERER_URL + hashRoute
   }
@@ -193,6 +211,7 @@ function createTray() {
   tray.setToolTip("Astra")
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open Astra", click: () => showMainWindow() },
+    { label: "Diagnostics", click: () => openDebugWindow() },
     { type: "separator" },
     { label: "Quit", click: () => { isQuitting = true; app.quit() } },
   ]))
@@ -200,6 +219,18 @@ function createTray() {
     if (mainWindow?.isVisible()) mainWindow.hide()
     else showMainWindow()
   })
+}
+
+function registerDebugShortcut() {
+  const accelerator = process.platform === "darwin" ? "Command+Shift+D" : "Control+Shift+D"
+  const success = globalShortcut.register(accelerator, () => {
+    addDebugLog("info", "main-window", "Debug shortcut triggered", { accelerator })
+    openDebugWindow()
+  })
+
+  if (!success) {
+    addDebugLog("warn", "main-window", "Failed to register debug shortcut", { accelerator })
+  }
 }
 
 function popupUrl(data: object) {
@@ -369,6 +400,7 @@ app.whenReady().then(() => {
     addDebugLog(entry.level || "info", entry.source || "renderer", entry.message || "Renderer event", entry.details)
   })
   ipcMain.handle("debug-get-logs", () => debugLogs)
+  ipcMain.handle("get-update-status", () => lastUpdateStatus)
   ipcMain.on("debug-clear", () => { debugLogs.length = 0 })
 
   // IPC: native OS notification
@@ -395,6 +427,7 @@ app.whenReady().then(() => {
   createWindow()
   createTray()
   setupAutoUpdater()
+  registerDebugShortcut()
 
   // IPC: check if window is focused (used by renderer to decide in-app vs OS notification)
   ipcMain.handle("is-window-focused", () => mainWindow?.isFocused() ?? false)
@@ -427,9 +460,14 @@ app.whenReady().then(() => {
 })
 
 app.on("before-quit", () => { isQuitting = true })
+app.on("will-quit", () => { globalShortcut.unregisterAll() })
 
 // ── Auto-updater ────────────────────────────────────────────────────────────
 function setupAutoUpdater() {
+  let cachedUpdateVersion: string | undefined
+  let usedGenericFallback = false
+  const genericFeedUrl = "https://github.com/ZheyUse/walkie-chattie/releases/latest/download/"
+
   autoUpdater.logger = {
     info: (msg) => addDebugLog("info", "updater", String(msg)),
     warn: (msg) => addDebugLog("warn", "updater", String(msg)),
@@ -438,22 +476,34 @@ function setupAutoUpdater() {
   }
 
   autoUpdater.on("checking-for-update", () => {
-    addDebugLog("info", "updater", "Checking for updates...")
+    addDebugLog("info", "updater", "Checking for updates...", {
+      currentVersion: app.getVersion(),
+    })
   })
 
   autoUpdater.on("update-available", (info) => {
     addDebugLog("info", "updater", "Update available", info)
-    mainWindow?.webContents.send("update-status", { status: "available", version: info.version })
+    addDebugLog("info", "updater", `Found update ${info.version}`, {
+      currentVersion: app.getVersion(),
+      releaseName: info.releaseName,
+      releaseDate: info.releaseDate,
+      files: info.files?.map((file) => ({ url: file.url, size: file.size })),
+    })
+    cachedUpdateVersion = info.version
+    broadcastUpdateStatus({ status: "available", version: info.version })
   })
 
   autoUpdater.on("update-not-available", () => {
-    addDebugLog("info", "updater", "No updates available")
+    addDebugLog("info", "updater", "No updates available", {
+      currentVersion: app.getVersion(),
+    })
   })
 
   autoUpdater.on("download-progress", (progress) => {
     addDebugLog("info", "updater", "Download progress", { percent: progress.percent.toFixed(1), transferred: progress.transferred, total: progress.total })
-    mainWindow?.webContents.send("update-status", {
+    broadcastUpdateStatus({
       status: "downloading",
+      version: cachedUpdateVersion,
       percent: Math.round(progress.percent),
       transferred: progress.transferred,
       total: progress.total,
@@ -462,7 +512,8 @@ function setupAutoUpdater() {
 
   autoUpdater.on("update-downloaded", (info) => {
     addDebugLog("info", "updater", `Update ${info.version} downloaded — will install on restart`)
-    mainWindow?.webContents.send("update-status", { status: "ready", version: info.version })
+    cachedUpdateVersion = info.version
+    broadcastUpdateStatus({ status: "ready", version: info.version })
   })
 
   autoUpdater.on("error", (err) => {
@@ -471,8 +522,34 @@ function setupAutoUpdater() {
 
   // Check for updates — skips in dev mode (ELECTRON_RENDERER_URL is only set in dev)
   if (!isDev) {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      addDebugLog("error", "updater", "checkForUpdatesAndNotify failed", err)
-    })
+    autoUpdater.checkForUpdatesAndNotify()
+      .then((result) => {
+        addDebugLog("info", "updater", "Update check completed", {
+          currentVersion: app.getVersion(),
+          updateAvailable: Boolean(result?.updateInfo?.version),
+          updateVersion: result?.updateInfo?.version,
+        })
+      })
+      .catch((err) => {
+        addDebugLog("error", "updater", "checkForUpdatesAndNotify failed", err)
+
+        const message = err instanceof Error ? err.message : String(err)
+        if (!usedGenericFallback && message.includes("latest.yml")) {
+          usedGenericFallback = true
+          addDebugLog("warn", "updater", "Falling back to generic latest feed", { url: genericFeedUrl })
+          autoUpdater.setFeedURL({ provider: "generic", url: genericFeedUrl })
+          autoUpdater.checkForUpdates()
+            .then((result) => {
+              addDebugLog("info", "updater", "Generic update check completed", {
+                currentVersion: app.getVersion(),
+                updateAvailable: Boolean(result?.updateInfo?.version),
+                updateVersion: result?.updateInfo?.version,
+              })
+            })
+            .catch((fallbackError) => {
+              addDebugLog("error", "updater", "Generic update check failed", fallbackError)
+            })
+        }
+      })
   }
 }
