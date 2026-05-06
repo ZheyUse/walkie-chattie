@@ -32,6 +32,41 @@ Modern chat apps live in browser tabs. Browser tabs get minimized. Minimized tab
 |---|---|
 | ![Astra join room screen](resources/prod-screenshot/astra-joinroom.png) | ![Astra create room screen](resources/prod-screenshot/astra-createroom.png) |
 
+### Space Avatars
+
+Pick from 20 space-themed SVG avatars when creating or customizing a space.
+
+<table>
+  <tr>
+    <td align="center"><img src="resources/space-avatar/avatar-rocket.svg" width="48" alt="Rocket"><br>Rocket</td>
+    <td align="center"><img src="resources/space-avatar/avatar-alien.svg" width="48" alt="Alien"><br>Alien</td>
+    <td align="center"><img src="resources/space-avatar/avatar-astronaut.svg" width="48" alt="Astronaut"><br>Astronaut</td>
+    <td align="center"><img src="resources/space-avatar/avatar-space-helmet.svg" width="48" alt="Space Helmet"><br>Helmet</td>
+    <td align="center"><img src="resources/space-avatar/avatar-robot.svg" width="48" alt="Robot"><br>Robot</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="resources/space-avatar/avatar-alien-spaceship.svg" width="48" alt="Alien Spaceship"><br>Alien Ship</td>
+    <td align="center"><img src="resources/space-avatar/avatar-spaceship.svg" width="48" alt="Spaceship"><br>Spaceship</td>
+    <td align="center"><img src="resources/space-avatar/avatar-saturn.svg" width="48" alt="Saturn"><br>Saturn</td>
+    <td align="center"><img src="resources/space-avatar/avatar-planets.svg" width="48" alt="Planets"><br>Planets</td>
+    <td align="center"><img src="resources/space-avatar/avatar-moon.svg" width="48" alt="Moon"><br>Moon</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="resources/space-avatar/avatar-rover.svg" width="48" alt="Rover"><br>Rover</td>
+    <td align="center"><img src="resources/space-avatar/avatar-telescope.svg" width="48" alt="Telescope"><br>Telescope</td>
+    <td align="center"><img src="resources/space-avatar/avatar-sattelite.svg" width="48" alt="Satellite"><br>Satellite</td>
+    <td align="center"><img src="resources/space-avatar/avatar-sattelite-2.svg" width="48" alt="Satellite 2"><br>Satellite 2</td>
+    <td align="center"><img src="resources/space-avatar/avatar-comet.svg" width="48" alt="Comet"><br>Comet</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="resources/space-avatar/avatar-nebula.svg" width="48" alt="Nebula"><br>Nebula</td>
+    <td align="center"><img src="resources/space-avatar/avatar-galaxy.svg" width="48" alt="Galaxy"><br>Galaxy</td>
+    <td align="center"><img src="resources/space-avatar/avatar-stars.svg" width="48" alt="Stars"><br>Stars</td>
+    <td align="center"><img src="resources/space-avatar/avatar-stars-2.svg" width="48" alt="Stars 2"><br>Stars 2</td>
+    <td align="center"><img src="resources/space-avatar/avatar-blackhole.svg" width="48" alt="Black Hole"><br>Black Hole</td>
+  </tr>
+</table>
+
 ### Chat Dashboard
 
 ![Astra dashboard](resources/prod-screenshot/astra-dashboard.png)
