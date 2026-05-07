@@ -10,9 +10,9 @@ interface Window {
     minimize: () => void
     toggleMaximize: () => void
     closeWindow: () => void
-    showShout: (data: { sender: string; message: string; gifUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
-    showTap: (data: { sender: string; message: string; gifUrl?: string; color?: string }) => void
-    showBroadcast: (data: { sender: string; message: string; gifUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
+    showShout: (data: { sender: string; message: string; gifUrl?: string; imageUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
+    showTap: (data: { sender: string; message: string; gifUrl?: string; imageUrl?: string; color?: string }) => void
+    showBroadcast: (data: { sender: string; message: string; gifUrl?: string; imageUrl?: string; color?: string; spaceName?: string; spaceIcon?: string }) => void
     isWindowFocused: () => Promise<boolean>
     closePopup: () => void
     openSystemBrowser: (url: string) => void
@@ -36,6 +36,8 @@ interface Window {
       details?: unknown
     }>>
     clearDebugLogs: () => void
+    setDebugMode: (enabled: boolean) => void
+    onDebugStateChanged: (callback: (enabled: boolean) => void) => () => void
     onDebugLog: (callback: (entry: {
       id: number
       timestamp: string
@@ -47,6 +49,7 @@ interface Window {
     // Auto-updater
     restartToUpdate: () => void
     downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+    checkForUpdates: () => Promise<{ success: boolean; updateAvailable?: boolean; updateVersion?: string; error?: string; message?: string }>
     getUpdateStatus: () => Promise<{ status: string; version?: string; percent?: number; transferred?: number; total?: number } | null>
     onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => void) => () => void
   }

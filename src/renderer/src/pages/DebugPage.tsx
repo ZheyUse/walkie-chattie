@@ -2,6 +2,7 @@ import 'material-symbols'
 import { useEffect, useMemo, useState } from "react"
 import type { DebugLogEntry } from "../lib/debug"
 import { assetPath } from "../lib/assets"
+import { setDebugEnabled } from "../lib/debug"
 
 function formatDetails(details: unknown) {
   if (details === undefined || details === null || details === "") return ""
@@ -51,6 +52,24 @@ export default function DebugPage() {
   const [copiedAll, setCopiedAll] = useState(false)
   const [cleared, setCleared] = useState(false)
   const [showIconPreview, setShowIconPreview] = useState(false)
+  const [debugEnabled, setDebugEnabledState] = useState(() => {
+    return localStorage.getItem('debugEnabled') === 'true'
+  })
+
+  const toggleDebug = () => {
+    const newValue = !debugEnabled
+    setDebugEnabledState(newValue)
+    setDebugEnabled(newValue)
+  }
+
+  const sendTestLog = () => {
+    window.api?.logDebug({
+      level: 'success',
+      source: 'test',
+      message: 'Test log - debug is working!',
+      details: { time: new Date().toISOString() }
+    })
+  }
   const [apiAvailable, setApiAvailable] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
 
@@ -145,83 +164,99 @@ export default function DebugPage() {
 
   return (
     <div className="h-screen bg-bg-deep text-text-hi flex flex-col overflow-hidden">
-      <header className="h-14 border-b border-border-lo flex items-center justify-between px-4 bg-bg-panel">
-        <div>
-          <h1 className="font-display text-lg">Debug Mode</h1>
-          <p className="text-xs text-text-lo">F1 opens this window. Events, crashes, network failures, and app actions appear here.</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-text-lo">
-          <span>App icon:</span>
-          <img
-            src={assetPath("resources/icons/icon-64.png")}
-            alt="app icon"
-            title="Click to preview full size"
-            className="rounded cursor-pointer hover:ring-2 hover:ring-accent transition-all"
-            style={{ width: 32, height: 32 }}
-            onClick={() => setShowIconPreview(true)}
-          />
-          {showFilteredCount && <span>{filtered.length} shown</span>}
-          <span className={showFilteredCount ? "text-text-lo" : ""}>{logs.length} logs</span>
-          <span className="text-green-400">{logs.filter((entry) => entry.level === "success").length} success</span>
-          <span className="text-red-400">{logs.filter((entry) => entry.level === "error").length} errors</span>
-          <button
-            onClick={copyAllLogs}
-            className="flex items-center gap-1.5 h-7 px-2 rounded border border-border-md text-text-md hover:text-accent hover:border-accent transition-colors"
-            title="Copy filtered logs to clipboard"
-          >
-            {copiedAll ? (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
-                {copiedText}
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>content_copy</span>
-                Copy All
-              </>
-            )}
-          </button>
-          <button
-            onClick={clearLogs}
-            className="flex items-center gap-1.5 h-7 px-2 rounded border border-border-md text-text-md hover:text-shout hover:border-shout transition-colors"
-            title="Clear all logs"
-          >
-            {cleared ? (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
-                Cleared
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>delete</span>
-                Clear
-              </>
-            )}
-          </button>
+      <header className="border-b border-border-lo px-4 py-2 bg-bg-panel flex-shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 className="font-display text-base sm:text-lg">Debug Mode</h1>
+            <p className="text-[10px] sm:text-xs text-text-lo hidden sm:block">F1 opens this window.</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-text-lo flex-wrap">
+            <img
+              src={assetPath("resources/icons/icon-64.png")}
+              alt="app icon"
+              title="Click to preview full size"
+              className="rounded cursor-pointer hover:ring-2 hover:ring-accent transition-all w-6 h-6 sm:w-8 sm:h-8"
+              onClick={() => setShowIconPreview(true)}
+            />
+            <span className="hidden sm:inline">{filtered.length}/{logs.length}</span>
+            <span className="text-green-400">{logs.filter((entry) => entry.level === "success").length} SUCCESS</span>
+            <span className="text-red-400">{logs.filter((entry) => entry.level === "error").length} ERROR</span>
+            <span className={"h-7 px-2 sm:px-3 rounded border text-xs font-display font-semibold " + (debugEnabled ? 'border-green-500/30 text-green-400 bg-green-500/10' : 'border-border-md text-text-lo bg-bg-panel')}>
+              {debugEnabled ? '● ON' : '○ OFF'}
+            </span>
+            <button
+              onClick={toggleDebug}
+              className="h-8 px-3 rounded-input text-xs font-display"
+              title="Toggle debug logging"
+            >
+              {debugEnabled ? 'Disable' : 'Enable'}
+            </button>
+            <button
+              onClick={sendTestLog}
+              className="h-7 px-2 rounded border border-border-md text-xs text-text-md hover:text-accent hover:border-accent transition-colors"
+              title="Send test log"
+            >
+              Test
+            </button>
+            <button
+              onClick={copyAllLogs}
+              className="flex items-center gap-1 h-7 px-2 rounded border border-border-md text-text-md hover:text-accent hover:border-accent transition-colors"
+              title="Copy filtered logs to clipboard"
+            >
+              {copiedAll ? (
+                <>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
+                  <span className="hidden sm:inline">{copiedText}</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>content_copy</span>
+                  <span className="hidden sm:inline">Copy</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={clearLogs}
+              className="flex items-center gap-1 h-7 px-2 rounded border border-border-md text-text-md hover:text-shout hover:border-shout transition-colors"
+              title="Clear all logs"
+            >
+              {cleared ? (
+                <>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
+                  <span className="hidden sm:inline">Cleared</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>delete</span>
+                  <span className="hidden sm:inline">Clear</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="h-12 border-b border-border-lo flex items-center gap-3 px-4 bg-bg-surface">
+      <div className="h-auto sm:h-12 border-b border-border-lo flex items-center gap-2 px-4 py-2 bg-bg-surface flex-wrap">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search logs..."
-          className="input-field h-8 max-w-sm"
+          placeholder="Search..."
+          className="input-field h-8 flex-1 min-w-[120px] max-w-xs"
         />
         <select
           value={level}
           onChange={(event) => setLevel(event.target.value as typeof level)}
           className="bg-bg-panel border border-border-md rounded-input h-8 px-2 text-xs text-text-hi"
         >
-          <option value="all">All levels</option>
+          <option value="all">All</option>
           <option value="info">Info</option>
           <option value="success">Success</option>
-          <option value="warn">Warnings</option>
-          <option value="error">Errors</option>
+          <option value="warn">Warn</option>
+          <option value="error">Error</option>
         </select>
         <button
           onClick={() => window.api.openDebugWindow()}
-          className="h-8 px-3 rounded-input bg-bg-panel border border-border-md text-xs text-text-md hover:text-accent"
+          className="h-8 px-2 sm:px-3 rounded-input bg-bg-panel border border-border-md text-xs text-text-md hover:text-accent"
         >
           Focus
         </button>

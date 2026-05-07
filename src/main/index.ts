@@ -1,6 +1,14 @@
 import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, Notification, globalShortcut } from "electron"
 import { join, resolve } from "path"
 import { autoUpdater } from "electron-updater"
+import { createClient } from "@supabase/supabase-js"
+
+// Supabase credentials (same as renderer)
+const SUPABASE_URL = "https://wqoljftjltqdebdmkxuc.supabase.co"
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indxb2xqZnRqbHRxZGViZG1reHVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2Mzg2MjgsImV4cCI6MjA5MzIxNDYyOH0.-4qv-UloidDoj5Fnqgmt2sx_jawTc4jlG07fFYXKqhM"
+
+// Create Supabase client for main process
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 // isDev: detect if running in dev mode
 const isDev = !!(process.env.ELECTRON_RENDERER_URL || process.env.ELECTRON_ENABLE_LOGGING)
@@ -15,6 +23,8 @@ let isQuitting = false
 let pendingOAuthUrl: string | null = null
 let startInBackground = false
 let lastUpdateStatus: UpdateStatusPayload | null = null
+// Track current user ID for offline status update on quit
+let currentUserId: string | null = null
 
 type DebugLevel = "info" | "warn" | "error"
 
@@ -155,6 +165,8 @@ function showMainWindow() {
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
   mainWindow.focus()
+  // Re-enable throttling when window is shown
+  mainWindow.webContents.setBackgroundThrottling(true)
 }
 
 function createWindow() {
@@ -186,7 +198,13 @@ function createWindow() {
   })
 
   mainWindow.on("close", (event) => {
-    if (!isQuitting) { event.preventDefault(); mainWindow?.hide() }
+    if (!isQuitting) {
+      event.preventDefault()
+      mainWindow?.hide()
+      // Disable background throttling to keep Supabase Realtime WebSocket alive in tray
+      mainWindow?.webContents.setBackgroundThrottling(false)
+      addDebugLog("info", "main-window", "Background throttling disabled (in tray)")
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -217,7 +235,12 @@ function createTray() {
   ]))
   tray.on("click", () => {
     if (mainWindow?.isVisible()) mainWindow.hide()
-    else showMainWindow()
+    else {
+      showMainWindow()
+      // Re-enable throttling when window is restored
+      mainWindow?.webContents.setBackgroundThrottling(true)
+      addDebugLog("info", "main-window", "Background throttling re-enabled")
+    }
   })
 }
 
@@ -403,6 +426,18 @@ app.whenReady().then(() => {
   ipcMain.handle("get-update-status", () => lastUpdateStatus)
   ipcMain.on("debug-clear", () => { debugLogs.length = 0 })
 
+  // IPC: toggle debug mode across all windows
+  let globalDebugEnabled = false
+  ipcMain.on("debug-toggle", (_, enabled: boolean) => {
+    globalDebugEnabled = enabled
+    // Broadcast to all windows
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send("debug-state-changed", enabled)
+    }
+    addDebugLog("info", "main-process", `Global debug mode ${enabled ? 'ENABLED' : 'DISABLED'}`, { windowCount: BrowserWindow.getAllWindows().length })
+  })
+  ipcMain.handle("debug-get-state", () => globalDebugEnabled)
+
   // IPC: native OS notification
   ipcMain.on("show-notification", (_, data: { title: string; body: string; tag?: string }) => {
     if (!Notification.isSupported()) {
@@ -422,6 +457,16 @@ app.whenReady().then(() => {
       }
     })
     notification.show()
+  })
+
+  // IPC: track user login/logout for offline status update on quit
+  ipcMain.on("user-logged-in", (_, userId: string) => {
+    currentUserId = userId
+    addDebugLog("info", "main-process", `User logged in tracking: ${userId}`)
+  })
+  ipcMain.on("user-logged-out", () => {
+    currentUserId = null
+    addDebugLog("info", "main-process", "User logged out tracking cleared")
   })
 
   createWindow()
@@ -444,14 +489,29 @@ app.whenReady().then(() => {
     }
   })
 
+  // IPC: manually check for updates (triggered by clicking version in titlebar)
+  ipcMain.handle("check-for-updates", async () => {
+    if (isDev) return { success: true, message: "Skipped in dev mode" }
+    try {
+      addDebugLog("info", "updater", "Manual update check triggered")
+      const result = await autoUpdater.checkForUpdates()
+      return { success: true, updateAvailable: Boolean(result?.updateInfo?.version), updateVersion: result?.updateInfo?.version }
+    } catch (err) {
+      addDebugLog("error", "updater", "Manual checkForUpdates failed", err)
+      return { success: false, error: String(err) }
+    }
+  })
+
   // IPC: install downloaded update and restart
   ipcMain.on("restart-to-update", () => {
     isQuitting = true
     autoUpdater.quitAndInstall()
   })
 
-  // Auto-start in background (like Epic/Riot — no window on boot)
-  app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
+  // Auto-start in background (only in production builds)
+  if (!isDev) {
+    app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -459,7 +519,21 @@ app.whenReady().then(() => {
   })
 })
 
-app.on("before-quit", () => { isQuitting = true })
+app.on("before-quit", async () => {
+  isQuitting = true
+  addDebugLog("info", "main-process", "[BEFORE-QUIT] App is quitting", { currentUserId })
+  if (currentUserId) {
+    try {
+      await supabase
+        .from("profiles")
+        .update({ is_online: false, last_seen_at: new Date().toISOString() })
+        .eq("id", currentUserId)
+      addDebugLog("info", "main-process", "[BEFORE-QUIT] User set offline successfully", { userId: currentUserId })
+    } catch (err) {
+      addDebugLog("error", "main-process", "[BEFORE-QUIT] Failed to set offline", { userId: currentUserId, error: String(err) })
+    }
+  }
+})
 app.on("will-quit", () => { globalShortcut.unregisterAll() })
 
 // ── Auto-updater ────────────────────────────────────────────────────────────

@@ -299,7 +299,7 @@ function JoinView({ onJoined }: JoinViewProps) {
 
         if (cleanupErr) {
           debugLog({ level: "error", source: "room-modal", message: "Membership cleanup failed", details: cleanupErr })
-          toast("Join failed â€” ask the admin to re-invite you.")
+          toast("Join failed — ask the admin to re-invite you.")
           setJoiningSpace(false)
           return
         }
@@ -307,12 +307,12 @@ function JoinView({ onJoined }: JoinViewProps) {
         const { error: retryErr } = await supabase.from("space_members").insert(insertPayload)
         if (retryErr) {
           debugLog({ level: "error", source: "room-modal", message: "Join retry failed", details: retryErr })
-          toast("Join failed â€” ask the admin to re-invite you.")
+          toast("Join failed — ask the admin to re-invite you.")
           setJoiningSpace(false)
           return
         }
       } else {
-        toast("Join failed â€” please try again.")
+        toast("Join failed — please try again.")
         setJoiningSpace(false)
         return
       }

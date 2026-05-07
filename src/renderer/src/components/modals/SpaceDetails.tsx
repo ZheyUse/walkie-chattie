@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useSpaceStore } from '../../stores/space.store'
 import { useAuthStore } from '../../stores/auth.store'
 import type { Message } from '../../stores/chat.store'
+import MediaPreviewModal from '../ui/MediaPreviewModal'
 
 type Tab = 'media' | 'files' | 'links'
 
@@ -35,6 +36,8 @@ export default function SpaceDetails({ onBack }: { onBack: () => void }) {
   const [files, setFiles] = useState<Message[]>([])
   const [links, setLinks] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewType, setPreviewType] = useState<'image' | 'gif'>('image')
 
   useEffect(() => {
     if (!currentSpace) return
@@ -113,13 +116,12 @@ export default function SpaceDetails({ onBack }: { onBack: () => void }) {
               {media.map(msg => {
                 const src = msg.gif_url || msg.image_url
                 if (!src) return null
+                const type = msg.gif_url ? 'gif' : 'image'
                 return (
-                  <a
+                  <div
                     key={msg.id}
-                    href={src}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="relative aspect-square rounded-lg overflow-hidden block group"
+                    className="relative aspect-square rounded-lg overflow-hidden block group cursor-pointer"
+                    onClick={() => { setPreviewUrl(src); setPreviewType(type) }}
                   >
                     <img
                       src={src}
@@ -133,7 +135,7 @@ export default function SpaceDetails({ onBack }: { onBack: () => void }) {
                         {msg.sender_nickname}
                       </span>
                     </div>
-                  </a>
+                  </div>
                 )
               })}
             </div>
@@ -160,6 +162,14 @@ export default function SpaceDetails({ onBack }: { onBack: () => void }) {
           )
         )}
       </div>
+
+      {/* Media preview modal */}
+      <MediaPreviewModal
+        open={!!previewUrl}
+        url={previewUrl || ''}
+        type={previewType}
+        onClose={() => setPreviewUrl(null)}
+      />
     </div>
   )
 }

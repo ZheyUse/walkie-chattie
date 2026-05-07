@@ -10,7 +10,20 @@
       "Bash(npx electron-vite *)",
       "Bash(Get-Content src\\\\renderer\\\\src\\\\components\\\\modals\\\\RoomModal.tsx)",
       "Bash(Select-String -Pattern \"^import\")",
-      "Bash(Select-Object -First 10)"
+      "Bash(Select-Object -First 10)",
+      "Bash(powershell -Command \"\\(Get-Content 'App.tsx' -Raw\\).Replace\\([char]0x201C + 'error' + [char]0x201D, '\\\\\"error\\\\\"'\\).Replace\\([char]0x201C + 'space' + [char]0x201D, '\\\\\"space\\\\\"'\\).Replace\\([char]0x201D, '\\\\\"'\\) | Set-Content 'App.tsx' -NoNewline\")",
+      "Bash(powershell -Command \"\\(Get-Content 'App.tsx' -Raw\\).Replace\\([char]0x2014, '-'\\) | Set-Content 'App.tsx' -NoNewline\")",
+      "Bash(powershell -Command \"Get-Content 'App.tsx' -Encoding UTF8 | Select-Object -First 1\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('App.tsx', 'utf8'\\); const lines = content.split\\('\\\\n'\\); const line = lines[577]; console.log\\('Line 578:', JSON.stringify\\(line\\)\\); console.log\\('Chars 58-65:', JSON.stringify\\(line.substring\\(58, 65\\)\\)\\); console.log\\('Char codes:', [...line.substring\\(58, 65\\)].map\\(c => c.charCodeAt\\(0\\)\\)\\)\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); let content = fs.readFileSync\\('App.tsx', 'utf8'\\); content = content.replace\\(/�/g, '-'\\); fs.writeFileSync\\('App.tsx', content\\); console.log\\('Fixed'\\)\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); let content = fs.readFileSync\\('App.tsx', 'utf8'\\); content = content.replace\\('message: -Space lookup safety timeout fired - forcing spacesReady=true', 'message: \\\\\"Space lookup safety timeout fired - forcing spacesReady=true\\\\\"'\\); fs.writeFileSync\\('App.tsx', content\\); console.log\\('Fixed'\\);\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); let content = fs.readFileSync\\('App.tsx', 'utf8'\\); content = content.replace\\(/message: -Space lookup safety timeout fired - forcing spacesReady=true\\\\\"\\\\\\\\s*\\\\\\\\}\\\\\\\\\\)/g, 'message: \\\\\"Space lookup safety timeout fired - forcing spacesReady=true\\\\\" }\\)'\\); fs.writeFileSync\\('App.tsx', content\\); console.log\\('Fixed'\\);\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('App.tsx', 'utf8'\\); const lines = content.split\\('\\\\n'\\); console.log\\('Line 578:', JSON.stringify\\(lines[577]\\)\\);\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); let content = fs.readFileSync\\('App.tsx', 'utf8'\\); content = content.replace\\('safety timeout fired - forcing spacesReady=true\\\\\"\\\\\" }\\)', 'safety timeout fired - forcing spacesReady=true\\\\\" }\\)'\\); fs.writeFileSync\\('App.tsx', content\\); console.log\\('Fixed'\\);\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); const path = require\\('path'\\); function processDir\\(dir\\) { const files = fs.readdirSync\\(dir\\); for \\(const file of files\\) { const fullPath = path.join\\(dir, file\\); const stat = fs.statSync\\(fullPath\\); if \\(stat.isDirectory\\(\\)\\) { processDir\\(fullPath\\); } else if \\(file.endsWith\\('.tsx'\\) || file.endsWith\\('.ts'\\)\\) { let content = fs.readFileSync\\(fullPath, 'utf8'\\); let fixed = false; const newContent = content.replace\\(/[\\\\\\\\u201C\\\\\\\\u201D]/g, '\\\\\"'\\).replace\\(/[\\\\\\\\u2018\\\\\\\\u2019]/g, \\\\\"'\\\\\"\\); if \\(newContent !== content\\) { fs.writeFileSync\\(fullPath, newContent\\); console.log\\('Fixed:', fullPath\\); } } } } processDir\\('.'\\);\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('components/chat/MessageList.tsx', 'utf8'\\); const lines = content.split\\('\\\\n'\\); console.log\\('Line 198:', JSON.stringify\\(lines[197]\\)\\);\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); let content = fs.readFileSync\\('components/chat/MessageList.tsx', 'utf8'\\); content = content.replace\\(/'ðŸ\\\\\"Š '/g, \\\\\"'\\\\\\\\u{1F514} '\\\\\"\\).replace\\(/'ðŸ'œ '/g, \\\\\"'\\\\\\\\u{1F493} '\\\\\"\\); fs.writeFileSync\\('components/chat/MessageList.tsx', content\\); console.log\\('Fixed'\\);\")",
+      "Bash(Select-Object -First 30)"
     ]
   },
   "enabledPlugins": {

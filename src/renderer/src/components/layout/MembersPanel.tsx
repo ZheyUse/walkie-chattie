@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useAuthStore } from "../../stores/auth.store"
 import { useSpaceStore, type Member } from "../../stores/space.store"
 import { supabase } from "../../lib/supabase"
 import { debugLog } from "../../lib/debug"
-import { getOnlineStatus } from "../../lib/presence"
 import { toast } from "../../lib/toast"
 import Avatar from "../ui/Avatar"
 
@@ -13,6 +12,44 @@ export default function MembersPanel() {
 
   const isAdmin = currentSpace?.owner_id === profile?.id
   const [blockLoading, setBlockLoading] = useState<string | null>(null)
+  const [globalOnlineUsers, setGlobalOnlineUsers] = useState<Set<string>>(new Set())
+  const globalOnlineIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Fetch global online status from database (not per-space)
+  const [lastSeenTimestamps, setLastSeenTimestamps] = useState<Record<string, number>>({})
+
+  const fetchGlobalOnlineStatus = async () => {
+    if (!visibleMembers.length) return
+    const userIds = visibleMembers.map(m => m.user_id)
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, is_online, last_seen_at')
+      .in('id', userIds)
+
+    if (data) {
+      const online = new Set<string>()
+      const timestamps: Record<string, number> = {}
+      data.forEach(p => {
+        if (p.is_online) online.add(p.id)
+        if (p.last_seen_at) timestamps[p.id] = new Date(p.last_seen_at).getTime()
+      })
+      setGlobalOnlineUsers(online)
+      setLastSeenTimestamps(timestamps)
+      debugLog({ source: 'members', message: 'Global online status fetched', details: { onlineCount: online.size, online: [...online], timestamps } })
+    }
+  }
+
+  // Poll for global online status every 5 seconds
+  useEffect(() => {
+    if (!currentSpace) return
+    fetchGlobalOnlineStatus()
+    globalOnlineIntervalRef.current = setInterval(fetchGlobalOnlineStatus, 5000)
+    return () => {
+      if (globalOnlineIntervalRef.current) {
+        clearInterval(globalOnlineIntervalRef.current)
+      }
+    }
+  }, [currentSpace?.id, JSON.stringify(members.map(m => m.user_id))])
   const wrongSpaceMembers = currentSpace ? members.filter(m => m.space_id !== currentSpace.id) : []
   const wrongSpaceMembersKey = wrongSpaceMembers.map(m => `${m.space_id}:${m.user_id}`).join("|")
   useEffect(() => {
@@ -37,32 +74,62 @@ export default function MembersPanel() {
   const getDisplayName = (member: Member) => member.display_name?.trim() || member.nickname
 
   const getStatus = (member: Member) => {
-    const baseStatus = getOnlineStatus(member.user_id, onlineUsers)
-    if (baseStatus === 'offline') return 'offline'
-    if (!currentSpace) return baseStatus
-    // DND: space is muted for this app instance
-    const muteExpiryRaw = localStorage.getItem(`space-muted:${currentSpace.id}`)
-    if (muteExpiryRaw) {
-      const expiry = parseInt(muteExpiryRaw, 10)
-      if (expiry === 0 || (expiry !== null && expiry > Date.now())) {
-        return 'dnd'
-      }
+    // Check if user is online via global status
+    const isOnline = globalOnlineUsers.has(member.user_id)
+
+    if (!isOnline) {
+      debugLog({ source: 'status-debug', message: 'Status: OFFLINE', details: { nickname: member.nickname, reason: 'not in globalOnlineUsers' } })
+      return 'offline'
     }
-    // Show dnd if this user is the one who muted (their own mute is active)
-    if (member.user_id === profile?.id) {
-      const ownMuteRaw = localStorage.getItem(`space-muted:${currentSpace.id}`)
-      if (ownMuteRaw) {
-        const expiry = parseInt(ownMuteRaw, 10)
+
+    // Check if user is truly offline despite is_online=true
+    // (heartbeat runs every 30s, so if lastSeen > 2 minutes ago, they disconnected without proper cleanup)
+    const lastSeen = lastSeenTimestamps[member.user_id]
+    const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
+    if (lastSeen && Date.now() - lastSeen > OFFLINE_THRESHOLD_MS) {
+      debugLog({ source: 'status-debug', message: 'Status: OFFLINE (stale heartbeat)', details: { nickname: member.nickname, lastSeen, idleTimeMs: Date.now() - lastSeen, thresholdMs: OFFLINE_THRESHOLD_MS } })
+      return 'offline'
+    }
+
+    if (currentSpace) {
+      // DND: space is muted for this app instance
+      const muteExpiryRaw = localStorage.getItem(`space-muted:${currentSpace.id}`)
+      if (muteExpiryRaw) {
+        const expiry = parseInt(muteExpiryRaw, 10)
         if (expiry === 0 || (expiry !== null && expiry > Date.now())) {
           return 'dnd'
         }
       }
+      // Show dnd if this user is the one who muted (their own mute is active)
+      if (member.user_id === profile?.id) {
+        const ownMuteRaw = localStorage.getItem(`space-muted:${currentSpace.id}`)
+        if (ownMuteRaw) {
+          const expiry = parseInt(ownMuteRaw, 10)
+          if (expiry === 0 || (expiry !== null && expiry > Date.now())) {
+            return 'dnd'
+          }
+        }
+      }
     }
-    return baseStatus // 'online' or 'busy'
+
+    // Check if user is busy (idle for 10+ minutes) based on last_seen_at (reuse lastSeen from above)
+    const idleTime = lastSeen ? Date.now() - lastSeen : 0
+    if (lastSeen && idleTime >= 10 * 60 * 1000) {
+      debugLog({ source: 'status-debug', message: 'Status: BUSY (idle)', details: { nickname: member.nickname, userId: member.user_id, lastSeen, idleTimeMs: idleTime } })
+      return 'busy'
+    }
+
+    debugLog({ source: 'status-debug', message: 'Status: ONLINE', details: { nickname: member.nickname, userId: member.user_id, lastSeen, idleTimeMs: idleTime } })
+    return 'online'
   }
 
-  const onlineMembers = visibleMembers.filter(m => onlineUsers.has(m.user_id))
-  const offlineMembers = visibleMembers.filter(m => !onlineUsers.has(m.user_id))
+  const getMemberStatus = (m: Member) => {
+    const base = getStatus(m)
+    if (base === 'offline') return 'offline'
+    return 'online' // 'online', 'busy', or 'dnd' all go in online section
+  }
+  const onlineMembers = visibleMembers.filter(m => getMemberStatus(m) !== 'offline')
+  const offlineMembers = visibleMembers.filter(m => getMemberStatus(m) === 'offline')
   const handleBlacklist = async (member: Member) => {
     if (!currentSpace) return
     const displayName = member.display_name?.trim() || member.nickname

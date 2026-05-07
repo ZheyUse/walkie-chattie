@@ -95,6 +95,15 @@ export default function ChatInput() {
     }
   }, [editingMessage])
 
+  // Focus textarea when reply is triggered
+  useEffect(() => {
+    const handler = () => {
+      textareaRef.current?.focus()
+    }
+    window.addEventListener('focus-chat-input', handler)
+    return () => window.removeEventListener('focus-chat-input', handler)
+  }, [])
+
   const cancelEdit = () => {
     setEditingMessage(null)
     setValue('')
@@ -147,6 +156,12 @@ export default function ChatInput() {
     updateMessageStatus(data.id, 'sent')
     return tempId
   }, [updateMessageStatus, replaceMessage])
+
+  // Get display_name from space_members if available, else fallback to nickname/profile nickname
+  const getMyDisplayName = () => {
+    const myMember = members.find(m => m.user_id === profile?.id && m.space_id === currentSpace?.id)
+    return myMember?.display_name?.trim() || myMember?.nickname || profile?.nickname || 'Unknown'
+  }
 
   const send = useCallback(async () => {
     if ((!value.trim() && !pendingImage && !pendingGifUrl) || !currentSpace || !profile) return
@@ -202,6 +217,17 @@ export default function ChatInput() {
         toast(rawTapNick ? `Member "${rawTapNick}" not found` : 'Use /tap @username message')
         return
       }
+
+      // Check if target user is online (presence-based) - informational only
+      // Don't block based on presence - bugs in presence status could cause false offline detection
+      // The tap will reach the user if they're reachable, regardless of presence status
+      const onlineUsers = useSpaceStore.getState().onlineUsers
+      const isTargetOnline = onlineUsers.has(targetUserId)
+      debugLog({ source: "chat", message: "Tap: checking online status", details: { targetUserId, isTargetOnline, targetNickname } })
+      if (!isTargetOnline) {
+        toast(`@${targetNickname} is Offline`, { duration: 2000 })
+      }
+      // Note: We don't block here. The tap will still be sent - they'll receive it when they reconnect
     }
     if (cmd === "kick") {
       theContent = trimmed.replace(/^\/kick\s+/, '')
@@ -220,16 +246,16 @@ export default function ChatInput() {
         .eq('user_id', targetMember.user_id)
       if (kickError) {
         debugLog({ level: 'error', source: 'chat', message: 'Kick failed to remove member', details: kickError })
-        toast('Kick failed â€” try again.')
+        toast('Kick failed — try again.')
         return
       }
       const displayName = targetMember.display_name?.trim() || targetMember.nickname
       await supabase.from('messages').insert({
         space_id: currentSpace.id,
         sender_id: profile.id,
-        sender_nickname: profile.nickname,
+        sender_nickname: getMyDisplayName(),
         type: 'system',
-        content: `${profile.nickname} removed ${displayName} from the space`,
+        content: `${getMyDisplayName()} removed ${displayName} from the space`,
       })
       toast(`${displayName} has been removed`)
       setValue("")
@@ -238,11 +264,43 @@ export default function ChatInput() {
     if (cmd === "all") theContent = trimmed.replace(/^\/all\s+/, '')
 
     if (cmd === "nickname") {
-      const newName = trimmed.replace(/^\/nickname\s+/, '').trim()
-      if (!newName) { toast('Use /nickname your-name'); return }
+      const args = trimmed.replace(/^\/nickname\s+/, '').trim()
+      // Check if targeting another user: /nickname @username <newname>
+      const mentionMatch = args.match(/^@(\S+)\s+(.+)/)
+
+      if (mentionMatch) {
+        // Admin changing another user's nickname: /nickname @username <newname>
+        const rawNick = mentionMatch[1]
+        const newName = mentionMatch[2].trim()
+        if (!newName) { toast('Use /nickname @username <newname>'); return }
+
+        const isAdmin = currentSpace?.owner_id === profile?.id
+        if (!isAdmin) { toast('Only admins can change others\' nicknames'); return }
+
+        const targetMember = findMemberByName(rawNick)
+        if (!targetMember) { toast(`Member "${rawNick}" not found`); return }
+        if (targetMember.user_id === profile?.id) { toast('Use /nickname <newname> for yourself'); return }
+
+        const { error } = await supabase
+          .from('space_members')
+          .update({ display_name: newName })
+          .eq('space_id', currentSpace.id)
+          .eq('user_id', targetMember.user_id)
+        if (error) {
+          toast('Nickname update failed')
+          return
+        }
+        useSpaceStore.getState().setMembers(members.map(m => m.user_id === targetMember.user_id ? { ...m, display_name: newName } : m))
+        toast(`${targetMember.nickname}'s nickname changed to "${newName}"`)
+        setValue('')
+        return
+      }
+
+      // Original: /nickname <newname> (change own nickname)
+      if (!args) { toast('Use /nickname <newname> or /nickname @username <newname>'); return }
       const { error } = await supabase
         .from('space_members')
-        .update({ display_name: newName })
+        .update({ display_name: args })
         .eq('space_id', currentSpace.id)
         .eq('user_id', profile.id)
       if (error) {
@@ -250,7 +308,7 @@ export default function ChatInput() {
         toast('Nickname update failed')
         return
       }
-      useSpaceStore.getState().setMembers(members.map(m => m.user_id === profile.id ? { ...m, display_name: newName } : m))
+      useSpaceStore.getState().setMembers(members.map(m => m.user_id === profile.id ? { ...m, display_name: args } : m))
       toast('Nickname updated')
       setValue('')
       return
@@ -282,7 +340,7 @@ export default function ChatInput() {
       tmpId: tempId,
       space_id: currentSpace.id,
       sender_id: profile.id,
-      sender_nickname: profile.nickname,
+      sender_nickname: getMyDisplayName(),
       type: cmd as Message['type'],
       content: theContent || null,
       image_url: imageUrl || null,
@@ -298,7 +356,7 @@ export default function ChatInput() {
     const payload = {
       space_id: currentSpace.id,
       sender_id: profile.id,
-      sender_nickname: profile.nickname,
+      sender_nickname: getMyDisplayName(),
       type: cmd,
       content: theContent || null,
       image_url: imageUrl || null,
@@ -315,11 +373,16 @@ export default function ChatInput() {
     if (insertId && cmd === 'shout') {
       const includeSelf = localStorage.getItem('include_self_shout') === 'true'
       if (includeSelf) {
-        debugLog({ source: "chat", message: "showShout called", details: { sender: profile.nickname, message: theContent } })
+        if (imageUrl) {
+          debugLog({ source: "chat", message: "[SUCCESS] showShout with imageUrl", details: { sender: profile.nickname, message: theContent, imageUrl } })
+        } else {
+          debugLog({ source: "chat", message: "showShout called", details: { sender: profile.nickname, message: theContent, hasImage: false } })
+        }
         window.api.showShout({
-          sender: profile.nickname,
+          sender: getMyDisplayName(),
           message: theContent || '',
           gifUrl: pendingGifUrl || undefined,
+          imageUrl: imageUrl || undefined,
           spaceName: currentSpace?.name,
           spaceIcon: currentSpace?.avatar_emoji,
         })
@@ -330,11 +393,16 @@ export default function ChatInput() {
     if (insertId && cmd === 'tap' && targetUserId && targetNickname) {
       const includeSelf = localStorage.getItem('include_self_shout') === 'true'
       if (includeSelf) {
-        debugLog({ source: "chat", message: "showTap called", details: { sender: profile.nickname, targetNickname, message: theContent } })
+        if (imageUrl) {
+          debugLog({ source: "chat", message: "[SUCCESS] showTap with imageUrl", details: { sender: profile.nickname, targetNickname, message: theContent, imageUrl } })
+        } else {
+          debugLog({ source: "chat", message: "showTap called", details: { sender: profile.nickname, targetNickname, message: theContent, hasImage: false } })
+        }
         window.api.showTap({
-          sender: profile.nickname,
+          sender: getMyDisplayName(),
           message: theContent || '',
           gifUrl: pendingGifUrl || undefined,
+          imageUrl: imageUrl || undefined,
         })
       }
     }
@@ -345,7 +413,7 @@ export default function ChatInput() {
       if (includeSelf) {
         debugLog({ source: "chat", message: "showBroadcast called", details: { sender: profile.nickname, message: theContent } })
         window.api.showBroadcast({
-          sender: profile.nickname,
+          sender: getMyDisplayName(),
           message: theContent || '',
           gifUrl: pendingGifUrl || undefined,
           spaceName: currentSpace?.name,
@@ -548,7 +616,7 @@ export default function ChatInput() {
           onDragLeave={() => { setDragging(false) }}
           onDrop={handleDrop}
         >
-        {/* â”€â”€ Attachment button â”€â”€ */}
+        {/* ── Attachment button ── */}
         <Tooltip label="Attach file">
           <button
             onClick={() => { closeAllPopovers(); fileRef.current?.click() }}
@@ -572,7 +640,7 @@ export default function ChatInput() {
           }}
         />
 
-        {/* â”€â”€ GIF button â”€â”€ */}
+        {/* ── GIF button ── */}
         <div className="relative">
           <Tooltip label="GIF">
             <button
@@ -589,7 +657,7 @@ export default function ChatInput() {
           )}
         </div>
 
-        {/* â”€â”€ Stickers button â”€â”€ */}
+        {/* ── Stickers button ── */}
         <div className="relative">
           <Tooltip label="Stickers">
             <button
@@ -606,7 +674,7 @@ export default function ChatInput() {
           )}
         </div>
 
-        {/* â”€â”€ Emoji button â”€â”€ */}
+        {/* ── Emoji button ── */}
         <div className="relative">
           <Tooltip label="Emoji">
             <button
@@ -626,7 +694,7 @@ export default function ChatInput() {
         {/* Separator */}
         <div className="w-px h-7 bg-border-lo mx-0.5 self-center flex-shrink-0" />
 
-        {/* â”€â”€ Textarea â”€â”€ */}
+        {/* ── Textarea ── */}
         <textarea
           ref={textareaRef}
           value={value}
@@ -694,7 +762,7 @@ export default function ChatInput() {
       <div className="flex justify-between items-center mt-1 px-1">
         <p className="text-text-lo text-xs">
           <kbd className="font-body text-[10px] bg-bg-surface border border-border-lo rounded px-1">Enter</kbd>
-          {' '}to send Â·{' '}
+          {' '}to send ·{' '}
           <kbd className="font-body text-[10px] bg-bg-surface border border-border-lo rounded px-1">Shift+Enter</kbd>
           {' '}for new line
         </p>
@@ -705,3 +773,4 @@ export default function ChatInput() {
     </div>
   )
 }
+

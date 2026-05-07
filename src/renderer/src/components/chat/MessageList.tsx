@@ -14,7 +14,7 @@ const PAGE_SIZE = 100
 const BOTTOM_THRESHOLD = 80
 
 export default function MessageList() {
-  const { currentSpace, setSpace } = useSpaceStore()
+  const { currentSpace, setSpace, spaces } = useSpaceStore()
   const { profile } = useAuthStore()
   const { messages, setMessages, prependMessages, searchQuery, markSeen } = useChatStore()
   const listRef = useRef<HTMLDivElement>(null)
@@ -35,17 +35,35 @@ export default function MessageList() {
 
   useEffect(() => { profileIdRef.current = profile?.id }, [profile?.id])
 
-  // Scroll to bottom when messages first load (not on pagination prepends)
+  // Scroll to bottom when messages first load OR when space changes
   useEffect(() => {
+    // Don't scroll on pagination prepends
     if (messages.length === 0 || pageOffset > 0) return
+    if (!listRef.current) return
+
+    debugLog({ source: "auto-scroll", message: "[DEBUG] Scroll effect triggered", details: { messagesLength: messages.length, pageOffset, currentSpace: currentSpace?.id } })
+
     isAtBottomRef.current = true
     autoScrollRef.current = true
-    requestAnimationFrame(() => {
-      if (!listRef.current) return
-      listRef.current.scrollTo({ top: listRef.current.scrollHeight })
-      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
-    })
-  }, [messages.length, pageOffset])
+
+    // Use a small delay to ensure DOM has rendered
+    const scrollTimeout = setTimeout(() => {
+      if (listRef.current) {
+        const maxScroll = listRef.current.scrollHeight - listRef.current.clientHeight
+        listRef.current.scrollTop = maxScroll
+        debugLog({ source: "auto-scroll", message: "[SUCCESS] Scroll to bottom", details: {
+          scrollHeight: listRef.current.scrollHeight,
+          clientHeight: listRef.current.clientHeight,
+          maxScroll: maxScroll,
+          scrollTopAfter: listRef.current.scrollTop,
+        }})
+      } else {
+        debugLog({ level: "error", source: "auto-scroll", message: "[ERROR] listRef.current is null", details: {} })
+      }
+    }, 50)
+
+    return () => clearTimeout(scrollTimeout)
+  }, [messages.length, pageOffset, currentSpace?.id])
 
   // Normalize raw reactions from DB to UI format
   const normalizeReactions = (raw: unknown): Message['reactions'] => {
@@ -67,24 +85,28 @@ export default function MessageList() {
     if (resetLoad) setMessages([])
     else setLoadingOlder(true)
 
+    // Fetch newest messages first, then reverse for display
     supabase
       .from('messages')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('space_id', currentSpace.id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
       .then(({ data, count }) => {
         if (!data) { setLoadingOlder(false); return }
 
-        const formatted = data.map(m => {
+        // Reverse to display in chronological order (ascending)
+        const formatted = data.reverse().map(m => {
           const reactions = normalizeReactions((m as Message & { reactions?: unknown }).reactions)
           return { ...m, status: 'sent' as const, reactions } as Message
         })
 
         if (offset === 0) {
           setMessages(formatted)
+          debugLog({ source: "auto-scroll", message: "[DEBUG] Messages set for new space", details: { count: formatted.length, offset } })
         } else {
-          prependMessages(formatted)
+          // When loading older (scrolling up), prepend older messages at the BEGINNING
+          setMessages([...formatted, ...useChatStore.getState().messages])
         }
 
         const totalCount = count ?? data.length
@@ -94,7 +116,7 @@ export default function MessageList() {
       })
   }
 
-  // â”€â”€ Subscription state tracking â”€â”€
+  // ── Subscription state tracking ──
   const subscriptionActiveRef = useRef(false)
   const subscriptionErrorRef = useRef(false)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -112,26 +134,41 @@ export default function MessageList() {
     subscriptionErrorRef.current = false
     if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
 
+    // Build list of ALL space IDs user is a member of (for cross-space shout/tap)
+    const allSpaceIds = spaces.map(s => s.id).length > 0 ? spaces.map(s => s.id) : [currentSpace.id]
+    debugLog({ source: 'chat-realtime', message: 'Setting up subscriptions for all user spaces', details: { spaceCount: allSpaceIds.length, spaceIds: allSpaceIds, currentSpaceId: currentSpace.id } })
+
+    // Helper to get space info by ID
+    const getSpaceInfo = (spaceId: string) => {
+      const space = useSpaceStore.getState().spaces.find(s => s.id === spaceId)
+      return space ? { name: space.name, icon: space.avatar_emoji } : null
+    }
+
     var ch = supabase
-      .channel('space:' + currentSpace.id)
+      .channel('spaces:' + allSpaceIds.join('+'))
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'messages',
-        filter: 'space_id=eq.' + currentSpace.id
+        filter: `space_id=in.(${allSpaceIds.join(',')})`
       }, async function(payload) {
         var msg = payload.new as Message
-        debugLog({ source: 'chat-realtime', message: 'INSERT event received', details: { msgId: msg.id, type: msg.type, sender: msg.sender_nickname } })
+
+        debugLog({ source: 'chat-realtime', message: 'INSERT event received', details: { msgId: msg.id, type: msg.type, sender: msg.sender_nickname, spaceId: msg.space_id, currentSpaceId: currentSpace.id } })
+
+        // Get space info (from message's space, not current)
+        const spaceInfo = getSpaceInfo(msg.space_id)
 
         if (msg.type === 'shout') {
           const includeSelf = localStorage.getItem('include_self_shout') === 'true'
           const isOwnForShout = msg.sender_id === profileIdRef.current
-          debugLog({ source: 'chat-realtime', message: 'Shout check', details: { includeSelf, isOwnForShout } })
+          debugLog({ source: 'chat-realtime', message: 'Shout check', details: { includeSelf, isOwnForShout, spaceInfo } })
           if (includeSelf || !isOwnForShout) {
             window.api.showShout({
               sender: msg.sender_nickname,
               message: msg.content || '',
               gifUrl: msg.gif_url || undefined,
-              spaceName: currentSpace?.name,
-              spaceIcon: currentSpace?.avatar_emoji,
+              imageUrl: msg.image_url || undefined,
+              spaceName: spaceInfo?.name || msg.space_id,
+              spaceIcon: spaceInfo?.icon || undefined,
             })
           }
         }
@@ -141,7 +178,7 @@ export default function MessageList() {
           const isOwn = msg.sender_id === session?.user?.id
           const isTarget = msg.target_user_id === session?.user?.id
           if (isTarget || (includeSelf && isOwn)) {
-            window.api.showTap({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined })
+            window.api.showTap({ sender: msg.sender_nickname, message: msg.content || '', gifUrl: msg.gif_url || undefined, imageUrl: msg.image_url || undefined })
           }
         }
         if (msg.type === 'all') {
@@ -152,27 +189,33 @@ export default function MessageList() {
               sender: msg.sender_nickname,
               message: msg.content || '',
               gifUrl: msg.gif_url || undefined,
-              spaceName: currentSpace?.name,
-              spaceIcon: currentSpace?.avatar_emoji,
+              spaceName: spaceInfo?.name || msg.space_id,
+              spaceIcon: spaceInfo?.icon || undefined,
             })
           }
         }
 
+        // Only add to message list if from current space - skip cross-space messages (popups already shown above)
+        if (msg.space_id !== currentSpace.id) {
+          debugLog({ source: 'chat-realtime', message: 'Cross-space message - popup shown, skipping list add', details: { msgId: msg.id, spaceId: msg.space_id, currentSpaceId: currentSpace.id } })
+          return // Don't add cross-space messages to current space's list
+        }
+
         const isOwn = msg.sender_id === profileIdRef.current
         if (!isOwn) {
-          // Detect @mentions â€” still notify these even when the space is muted (like Discord)
+          // Detect @mentions — still notify these even when the space is muted (like Discord)
           const myNickname = profileIdRef.current ? useAuthStore.getState().profile?.nickname : null
           const contentLower = (msg.content || '').toLowerCase()
           const isMentioned = myNickname
             ? contentLower.includes(`@${myNickname.toLowerCase()}`)
             : false
 
-          if (isMentioned) debugLog({ source: 'chat-realtime', message: 'Mention detected â€” bypassing mute', details: { myNickname, content: msg.content } })
+          if (isMentioned) debugLog({ source: 'chat-realtime', message: 'Mention detected — bypassing mute', details: { myNickname, content: msg.content } })
 
           triggerNotification({
             title: msg.sender_nickname || 'New message',
-            body: msg.type === 'shout' ? 'ðŸ”Š ' + (msg.content || '') :
-                  msg.type === 'whisper' || msg.type === 'tap' ? 'ðŸ’œ ' + (msg.content || '') :
+            body: msg.type === 'shout' ? '🔔 ' + (msg.content || '') :
+                  msg.type === 'whisper' || msg.type === 'tap' ? '💓 ' + (msg.content || '') :
                   (msg.content || ''),
             tag: msg.id,
           }, isMentioned)
@@ -201,6 +244,8 @@ export default function MessageList() {
           nextMessages = [...currentMessages, { ...msg, reactions: normalizeReactions(msg.reactions) }]
         }
 
+        // Always scroll to show new messages in current space
+        autoScrollRef.current = true
         isOwnMessageInsertRef.current = isOwn
         setMessages(nextMessages)
 
@@ -244,22 +289,31 @@ export default function MessageList() {
         filter: 'space_id=eq.' + currentSpace.id
       }, function(payload) {
         var updated = payload.new as Message
-        var newStatus = (updated.status || 'sent') as Message['status']
-        if (newStatus === 'sent' && updated.sender_id !== profile?.id) {
-          newStatus = 'delivered' as Message['status']
-        }
+
+        // Preserve original status - only update status explicitly if message was newly confirmed
+        const prev = useChatStore.getState().messages
+        const existingMsg = prev.find(m => m.id === updated.id || m.tmpId === updated.id)
+        const originalStatus = existingMsg?.status || 'sent'
+
+        // Only update reactions, keep the existing status
         const updatedSeenBy = (updated as any).seen_by ?? updated.seenBy
         const updatedReactions = normalizeReactions((updated as Message & { reactions?: unknown }).reactions)
-        const prev = useChatStore.getState().messages
         const nextMessages = prev.map(function(m: Message) {
           if (m.id === updated.id || m.tmpId === updated.id) {
-            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy, reactions: updatedReactions.length ? updatedReactions : m.reactions }
+            // Keep original status (don't overwrite with null/default on reaction updates)
+            return {
+              ...m,
+              status: originalStatus as Message['status'],
+              seenBy: updatedSeenBy ?? m.seenBy,
+              reactions: updatedReactions.length ? updatedReactions : m.reactions
+            }
           }
           if (m.sender_id === updated.sender_id &&
               m.space_id === updated.space_id &&
               (m.tmpId || '').startsWith('temp-') &&
               m.status === 'sending') {
-            return { ...m, status: newStatus, seenBy: updatedSeenBy ?? m.seenBy, reactions: updatedReactions.length ? updatedReactions : m.reactions }
+            // Replace temp message with real one
+            return { ...m, status: 'sent' as const, seenBy: updatedSeenBy ?? m.seenBy, reactions: updatedReactions.length ? updatedReactions : m.reactions }
           }
           return m
         })
@@ -300,7 +354,7 @@ export default function MessageList() {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       supabase.removeChannel(ch)
     }
-  }, [currentSpace?.id])
+  }, [currentSpace?.id, spaces])
 
   // Track scroll: detect user scrolled to top (load older) or bottom (enable auto-scroll)
   useEffect(() => {
@@ -331,17 +385,30 @@ export default function MessageList() {
     const addedMessage = messages.length > prevMessagesLenRef.current
     prevMessagesLenRef.current = messages.length
 
+    debugLog({ source: "auto-scroll", message: "[DEBUG] New message check", details: { addedMessage, autoScrollRef: autoScrollRef.current, isOwnMessageInsertRef: isOwnMessageInsertRef.current, searchQuery: searchQuery.trim() } })
+
     if (!addedMessage || (!autoScrollRef.current && !isOwnMessageInsertRef.current) || searchQuery.trim()) {
-      autoScrollRef.current = false
+      if (!addedMessage) {
+        autoScrollRef.current = false
+      }
       return
     }
 
-    requestAnimationFrame(() => {
-      if (!listRef.current) return
-      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
-      isOwnMessageInsertRef.current = false
-      autoScrollRef.current = false
-    })
+    // Force instant scroll to bottom
+    if (listRef.current) {
+      const maxScroll = listRef.current.scrollHeight - listRef.current.clientHeight
+      listRef.current.scrollTop = maxScroll
+      debugLog({ source: "auto-scroll", message: "[SUCCESS] Scroll to bottom for new message", details: {
+        scrollHeight: listRef.current.scrollHeight,
+        clientHeight: listRef.current.clientHeight,
+        maxScroll: maxScroll,
+        scrollTopAfter: listRef.current.scrollTop
+      }})
+    } else {
+      debugLog({ level: "error", source: "auto-scroll", message: "[ERROR] listRef.current is null", details: {} })
+    }
+    isOwnMessageInsertRef.current = false
+    autoScrollRef.current = false
   }, [messages.length, searchQuery])
 
   // IntersectionObserver for seen tracking
@@ -401,6 +468,10 @@ export default function MessageList() {
 
   return (
     <div className='relative flex-1'>
+      {/* Debug: Message counter */}
+      <div className='absolute top-1 left-3 z-30 text-[10px] text-text-lo/40'>
+        {currentSpace?.name} — {messages.length} messages
+      </div>
       <div
         ref={listRef}
         className='absolute inset-0 overflow-y-auto px-2 py-2 flex flex-col gap-0.5'
@@ -432,7 +503,15 @@ export default function MessageList() {
             new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000
           var showNickname = showAvatar
           var showTimestamp = showAvatar
-          return <div key={msg.id} data-msg-id={msg.id}><MessageItem msg={msg} showAvatar={showAvatar} showNickname={showNickname} showTimestamp={showTimestamp} /></div>
+
+          // Check if this is the latest message sent by the current user
+          // This is used to show the checkmark status only on the latest message
+          const latestOwnMsg = messages.length > 0
+            ? [...messages].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).find(m => m.sender_id === profile?.id)
+            : null
+          const isLatestOwnMessage = msg.id === latestOwnMsg?.id
+
+          return <div key={msg.id} data-msg-id={msg.id}><MessageItem msg={msg} showAvatar={showAvatar} showNickname={showNickname} showTimestamp={showTimestamp} isLatestOwnMessage={isLatestOwnMessage} /></div>
         })}
       </div>
 

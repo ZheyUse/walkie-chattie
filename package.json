@@ -1,6 +1,6 @@
 {
   "name": "astra",
-  "version": "1.0.7",
+  "version": "1.0.10",
   "description": "Astra — Steam-dark desktop chat app",
   "main": "./out/main/index.js",
   "author": "Codez",

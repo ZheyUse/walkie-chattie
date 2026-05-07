@@ -1,27 +1,14 @@
-# Bug Tracker
+Bug Tracker
 
-## Realtime Sync
-2. Member panel does not update in realtime when users join a room
-3. Room rename by admin does not propagate in realtime
-8. Reactions are client-side only — not stored in Supabase, not visible to others
-
-## Member Panel (prioritize)
-1. After `/kick` or leaving a space, users cannot rejoin using the space ID
-7. Add space nickname (per-space display name, like Discord server nickname) using /nickname [feature]
-9. Member panel has multiple unresolved bugs — needs full audit
-13. Add three user statuses: Online, Offline, Busy [feature]
-
-## Messaging & Commands
-4. Auto-scroll to latest message only works for the local sender, not for incoming messages
-5. Commands (`/shout`, `/tap`, `/kick`) trigger even when not at the start of input — should be treated as plain text unless the command is the first character
-6. Reply button is non-functional — implement Discord-style reply UX
-10. Attaching a GIF, sticker, or image requires clicking the textarea and pressing Enter to send
-12. `/shout` and `/tap` fail when recipient is "offline" but app is still running in the system tray — clarify if tray = reachable 
-
-when internet is active
-
-## Stability
-11. Messages disappear intermittently when switching between spaces and returning — likely a stale cache or subscription cleanup issue
-
-
-
+1. When User quit the app in the tray the offline status did not update in realtime in member panel, it only updates when I switch spaces and go back ✅
+2. when sending a message the auto scroll to the latest work, but when sending a file, Gif, or sticker it wont work ✅
+3. nickname works, but when I switch to other space and go back it reverts back to my profiles.nickname instead of the space_members.display_name ✅
+4. add feature where admin can change a members nickname using /nickname @username <nickname> ✅
+5. add a toast message when user typed /tap @username <message> and the @username is offline it will say, @username is Offline so basically only if unreachable since we also uses websocket. ✅
+6. When clicking a GIF, Sticker, Images add a image Preview modal with download button to download Images, GIF, Stickers ✅
+7. in the space details in image section, when clicking an image it somehow redirects to a browser, no it should use the image preview as well. ✅
+8. Image wont include in /shout and /tap like GIF and Sticker,  it should be included ✅
+9. Check Notification Message it still has Mojibake Corruption. Scan all the codefile for this. ✅
+10. When I enter a space, switch a space, join a space in other words at starting point it wont auto scroll to the latest message. I keep clicking the new message button just for me to see down the latest message. ✅
+11. at the top there is a App Title + version, I want when I hover to version it will turn into a mini button check update, this way user does not need to restart the app just for the new version update to show they just need to click that to fire the search if there is a new update. ✅
+12. There is weird thing going around on status, I think the Busy and Offline has been swapped, because when users are busy the status becomes offline but still they can received the shout and tap, but when they actually offline like shutdown the PC lost connection to the internet which is literally offline, it somehow becomes busy status. ✅

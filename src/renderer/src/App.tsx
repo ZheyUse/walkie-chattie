@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "./lib/supabase"
 import { useAuthStore, type Profile } from "./stores/auth.store"
 import { useSpaceStore, type Member, type Space } from "./stores/space.store"
@@ -17,6 +17,7 @@ import TapPopup from "./components/popups/TapPopup"
 import BroadcastPopup from "./components/popups/BroadcastPopup"
 import { debugLog } from "./lib/debug"
 import { useIdleTracker, lastActiveRef, applyPresenceLastActive } from "./lib/presence"
+import { startOnlineHeartbeat, stopOnlineHeartbeat } from "./lib/online-status"
 import { initTypingChannel, teardownTypingChannel } from "./lib/typing-channel"
 import { assetPath } from "./lib/assets"
 
@@ -436,7 +437,7 @@ export default function App() {
 
           if (user) {
             debugLog({ source: "auth", message: "OAuth fragment session restored", details: { userId: user.id } })
-            // Don't call loadProfile here â€” setSession triggers onAuthStateChange which handles it
+            // Don't call loadProfile here - setSession triggers onAuthStateChange which handles it
             setSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: 3600, token_type: 'bearer', user })
             history.replaceState(null, '', window.location.pathname)
             return true
@@ -502,25 +503,64 @@ export default function App() {
           setSpacesReady(false)
         }
         // Only reload profile if the user actually changed AND no profile exists yet.
-        // This covers: (1) first sign-in with no profile yet â†’ load it
-        //               (2) same-user token refresh â†’ skip it to avoid wiping a profile
+        // This covers: (1) first sign-in with no profile yet ? load it
+        //               (2) same-user token refresh ? skip it to avoid wiping a profile
         //                  that was just set (e.g. during onboarding)
-        //               (3) same-user but no profile yet â†’ load it
+        //               (3) same-user but no profile yet ? load it
         const existingProfile = useAuthStore.getState().profile
         if (userChanged || !existingProfile) {
           loadProfile(session.user.id, setProfile)
         } else {
-          debugLog({ source: "auth", message: "Skipping profile load â€” same user with existing profile" })
+          debugLog({ source: "auth", message: "Skipping profile load - same user with existing profile" })
         }
+        // Start online heartbeat when user signs in
+        startOnlineHeartbeat(session.user.id)
+        window.api.userLoggedIn(session.user.id)
       } else {
         setProfile(null)
         setSpace(null)
         setMembers([])
         setSpacesReady(true)
+        // Stop online heartbeat when user signs out
+        stopOnlineHeartbeat()
+        window.api.userLoggedOut()
       }
     })
 
     return () => subscription.unsubscribe()
+  }, [])
+
+  // Set user offline when browser/electron app closes
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const currentUserId = useAuthStore.getState().user?.id
+      if (currentUserId) {
+        debugLog({ source: 'online-status', message: '[BEFOREUNLOAD] App closing, setting user offline', details: { userId: currentUserId } })
+        stopOnlineHeartbeat()
+        import('./lib/online-status').then(({ setUserOffline }) => {
+          debugLog({ source: 'online-status', message: '[BEFOREUNLOAD] Calling setUserOffline', details: { userId: currentUserId } })
+          setUserOffline(currentUserId)
+        })
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    // Also add pagehide as fallback (fires more reliably in Electron)
+    const handlePageHide = () => {
+      const currentUserId = useAuthStore.getState().user?.id
+      if (currentUserId) {
+        debugLog({ source: 'online-status', message: '[PAGEHIDE] App closing, setting user offline', details: { userId: currentUserId } })
+        stopOnlineHeartbeat()
+        import('./lib/online-status').then(({ setUserOffline }) => {
+          debugLog({ source: 'online-status', message: '[PAGEHIDE] Calling setUserOffline', details: { userId: currentUserId } })
+          setUserOffline(currentUserId)
+        })
+      }
+    }
+    window.addEventListener('pagehide', handlePageHide)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
   }, [])
 
   useEffect(() => {
@@ -553,7 +593,7 @@ export default function App() {
     const safetyTimeout = window.setTimeout(() => {
       if (!done) {
         done = true
-        debugLog({ level: "error", source: "space", message: "Space lookup safety timeout fired â€” forcing spacesReady=true" })
+        debugLog({ level: "error", source: "space", message: "Space lookup safety timeout fired - forcing spacesReady=true" })
         setSpacesReady(true)
       }
     }, 12000)
@@ -568,6 +608,31 @@ export default function App() {
     if (!ready || !user || !window.api) return
     window.api.closeOAuthBrowser()
   }, [ready, user?.id])
+
+  // Global realtime subscription for space membership changes (sync spaces across devices)
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel('user-spaces-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'space_members',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        debugLog({ source: 'spaces-realtime', message: 'Space membership changed', details: { event: payload.eventType, new: payload.new, old: payload.old } })
+        // Reload user's spaces when membership changes (new space created on another device)
+        loadExistingSpace(user.id, setSpace, setMembers, setSpaces)
+      })
+      .subscribe((status) => {
+        debugLog({ source: 'spaces-realtime', message: 'Global spaces subscription status', details: { status, userId: user.id } })
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id])
 
   // Real-time presence + typing: track online users and who is currently typing
   useEffect(() => {
@@ -604,6 +669,7 @@ export default function App() {
         }
       })
       useSpaceStore.getState().setOnlineUsers(new Set(ids))
+      debugLog({ source: 'presence-debug', message: 'REALTIME current space presence state', details: { spaceId: currentSpace.id, channelName, onlineIds: ids } })
     }
 
     const setTyping = (userId: string) => {
@@ -662,9 +728,11 @@ export default function App() {
         }
       })
       .subscribe(async (status) => {
+        debugLog({ source: 'presence-debug', message: 'Presence channel subscribe status', details: { status, spaceId: currentSpace.id, channelName } })
         if (status !== "SUBSCRIBED") return
-        // Track with last_active for idle detection across clients
+        debugLog({ source: 'presence-debug', message: 'Presence channel SUBSCRIBED, tracking', details: { spaceId: currentSpace.id, channelName, userId: user.id } })
         await channel.track({ user_id: user.id, last_active: lastActiveRef[user.id] || Date.now() })
+        debugLog({ source: 'presence-debug', message: 'Presence tracked', details: { spaceId: currentSpace.id, channelName, userId: user.id } })
       })
 
     // Re-sync last_active to presence every 5 min so other clients keep busy/online accurate
@@ -675,7 +743,9 @@ export default function App() {
     return () => {
       clearInterval(presenceTrackInterval)
       if (presenceRefreshTimer) window.clearTimeout(presenceRefreshTimer)
+      debugLog({ source: 'presence-debug', message: 'CLEANUP: removing presence channel', details: { spaceId: currentSpace.id, channelName } })
       supabase.removeChannel(channel)
+      debugLog({ source: 'presence-debug', message: 'CLEANUP: channel removed, clearing online users', details: {} })
       useSpaceStore.getState().setOnlineUsers(new Set())
       useSpaceStore.getState().setTypingUsers(new Set())
       teardownTypingChannel()

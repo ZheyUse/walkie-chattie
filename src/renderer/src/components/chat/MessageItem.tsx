@@ -1,17 +1,21 @@
-import 'material-symbols'
+﻿import 'material-symbols'
 import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSpaceStore } from '../../stores/space.store'
 import { useChatStore } from '../../stores/chat.store'
 import type { Message } from '../../stores/chat.store'
 import Avatar from '../ui/Avatar'
+import MediaPreviewModal from '../ui/MediaPreviewModal'
 import { toast } from '../../lib/toast'
+import { supabase } from '../../lib/supabase'
+import { debugLog } from '../../lib/debug'
 
 interface Props {
   msg: Message
   showAvatar?: boolean
   showNickname?: boolean
   showTimestamp?: boolean
+  isLatestOwnMessage?: boolean
 }
 
 const QUICK_REACTIONS = ['❤️', '😂', '😢']
@@ -109,7 +113,7 @@ function ActionBarTooltip({ label, flipUp = false, children }: { label: string; 
   )
 }
 
-export default function MessageItem({ msg, showAvatar = true, showNickname = true, showTimestamp = false }: Props) {
+export default function MessageItem({ msg, showAvatar = true, showNickname = true, showTimestamp = false, isLatestOwnMessage = false }: Props) {
   const { profile } = useAuthStore()
   const currentSpace = useSpaceStore(s => s.currentSpace)
   const members = useSpaceStore(s => s.members)
@@ -127,6 +131,31 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
   const [hovered, setHovered] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [missingProfile, setMissingProfile] = useState<{ picture?: string; avatar_color: string } | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewType, setPreviewType] = useState<'image' | 'gif' | 'sticker'>('image')
+
+  // Fetch profile if avatar picture is missing (for new users who haven't been loaded yet)
+  useEffect(() => {
+    const senderId = msg.sender_id
+    if (!senderId || senderId === profile?.id) return // Skip for self, we have profile data
+
+    const senderMember = currentSpace ? members.find(m => m.user_id === senderId && m.space_id === currentSpace.id) : null
+    // Already have picture from member data, skip
+    if (senderMember?.picture) return
+
+    // Fetch from profiles table
+    supabase
+      .from('profiles')
+      .select('id, picture, avatar_color')
+      .eq('id', senderId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setMissingProfile({ picture: data.picture, avatar_color: data.avatar_color })
+        }
+      })
+  }, [msg.sender_id, profile?.id, currentSpace?.id])
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -239,7 +268,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
         <div
           onClick={() => {
             if (!profile) return
-            window.api.showShout({ sender: senderName, message: msg.content || '', gifUrl: msg.gif_url || undefined, spaceName: currentSpace?.name, spaceIcon: currentSpace?.avatar_emoji })
+            window.api.showShout({ sender: senderName, message: msg.content || '', gifUrl: msg.gif_url || undefined, imageUrl: msg.image_url || undefined, spaceName: currentSpace?.name, spaceIcon: currentSpace?.avatar_emoji })
           }}
           className='px-3.5 py-2 rounded-xl rounded-tl-none cursor-pointer hover:opacity-90'
           style={{ background: 'linear-gradient(135deg, rgba(232,101,42,0.18) 0%, rgba(180,50,20,0.1) 100%)', border: '1px solid rgba(232,101,42,0.25)', borderLeft: '3px solid rgba(232,101,42,0.6)' }}
@@ -254,7 +283,7 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
         <div
           onClick={() => {
             if (!profile) return
-            window.api.showTap({ sender: senderName, message: msg.content || '', gifUrl: msg.gif_url || undefined })
+            window.api.showTap({ sender: senderName, message: msg.content || '', gifUrl: msg.gif_url || undefined, imageUrl: msg.image_url || undefined })
           }}
           className='px-3.5 py-2 rounded-xl rounded-tl-none cursor-pointer hover:opacity-90'
           style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(109,40,217,0.06) 100%)', border: '1px solid rgba(139,92,246,0.2)', borderLeft: '3px solid rgba(139,92,246,0.5)' }}
@@ -270,8 +299,8 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
         style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)' }}
       >
         {renderReplyPreview()}
-        {msg.gif_url && <img src={msg.gif_url} alt='GIF' className='max-h-48 rounded-lg object-contain mb-1.5' />}
-        {msg.image_url && <img src={msg.image_url} alt='Image' className='max-h-64 rounded-lg object-contain mb-1.5 cursor-pointer' style={{ opacity: 0.9 }} />}
+        {msg.gif_url && <img src={msg.gif_url} alt='GIF' className='max-h-48 rounded-lg object-contain mb-1.5 cursor-pointer hover:opacity-80 transition-opacity' onClick={(e) => { e.stopPropagation(); console.log('[DEBUG] GIF clicked, msgId:', msg.id, 'gifUrl:', msg.gif_url); debugLog({ source: 'message-item', message: 'GIF clicked, opening preview', details: { msgId: msg.id, gifUrl: msg.gif_url } }); setPreviewUrl(msg.gif_url); setPreviewType('gif') }} />}
+        {msg.image_url && <img src={msg.image_url} alt='Image' className='max-h-64 rounded-lg object-contain mb-1.5 cursor-pointer hover:opacity-80 transition-opacity' style={{ opacity: 0.9 }} onClick={(e) => { e.stopPropagation(); console.log('[DEBUG] Image clicked, msgId:', msg.id, 'imageUrl:', msg.image_url); debugLog({ source: 'message-item', message: 'Image clicked, opening preview', details: { msgId: msg.id, imageUrl: msg.image_url } }); setPreviewUrl(msg.image_url); setPreviewType('image') }} />}
         {msg.content && <p className='text-sm font-body whitespace-pre-wrap break-words leading-relaxed' style={{ color: 'rgba(232,234,237,0.92)' }}>{renderContent(msg.content)}</p>}
       </div>
     )
@@ -307,10 +336,14 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
     )
   }
 
-  const avatarColor = profile?.id === msg.sender_id ? (profile?.avatar_color || '#8b5cf6') : '#8b5cf6'
   const avatarPicture = profile?.id === msg.sender_id
     ? profile?.picture
-    : useSpaceStore.getState().getMemberPicture(msg.sender_id)
+    : useSpaceStore.getState().getMemberPicture(msg.sender_id) || missingProfile?.picture
+
+  const avatarColor = profile?.id === msg.sender_id
+    ? profile?.avatar_color
+    : useSpaceStore.getState().members.find(m => m.user_id === msg.sender_id)?.avatar_color || missingProfile?.avatar_color || '#8b5cf6'
+
 
   return (
     <div
@@ -350,8 +383,8 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
         <div className='flex items-start gap-2'>
           <div>{renderBubble()}</div>
 
-          {/* Own message status */}
-          {isOwn && msg.status && (
+          {/* Own message status - only show for the latest message sent */}
+          {isOwn && isLatestOwnMessage && msg.status && (
             <div className='flex-shrink-0 flex items-center gap-px' style={{ paddingTop: '8px' }}>
               {msg.status === 'sending' && (
                 <span className="material-symbols-outlined animate-spin" style={{ fontSize: '11px', color: 'rgba(139,92,246,0.5)' }}>progress_activity</span>
@@ -476,7 +509,11 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
         {/* Reply */}
         <ActionBarTooltip label='Reply' flipUp={!nearTop}>
           <button
-            onClick={() => setReplyingTo(msg)}
+            onClick={() => {
+              setReplyingTo(msg)
+              // Dispatch event to focus textarea so user can start typing immediately
+              window.dispatchEvent(new CustomEvent('focus-chat-input'))
+            }}
             className='w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer'
             style={{ background: 'rgba(9,11,20,0.6)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,234,237,0.5)' }}
           >
@@ -553,6 +590,15 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
           </div>
         )}
       </div>
+
+      {/* Media preview modal */}
+      <MediaPreviewModal
+        open={!!previewUrl}
+        url={previewUrl || ''}
+        type={previewType}
+        onClose={() => setPreviewUrl(null)}
+      />
     </div>
   )
 }
+

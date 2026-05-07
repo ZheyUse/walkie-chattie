@@ -1,6 +1,9 @@
 import 'material-symbols'
+import { useState } from 'react'
 import { useSpaceStore } from "../../stores/space.store"
 import { assetPath } from "../../lib/assets"
+import { debugLog } from "../../lib/debug"
+import { toast } from "../../lib/toast"
 
 export default function TitleBar() {
   const currentSpace = useSpaceStore(s => s.currentSpace)
@@ -8,6 +11,29 @@ export default function TitleBar() {
   const settingsOpen = useSpaceStore(s => s.settingsPanelOpen)
   const toggleSettings = useSpaceStore(s => s.toggleSettings)
   const appVersion = import.meta.env.VITE_APP_VERSION
+
+  const [isHoveringVersion, setIsHoveringVersion] = useState(false)
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+
+  const handleCheckUpdate = async () => {
+    setIsCheckingUpdate(true)
+    toast('Checking for new updates...')
+    try {
+      const result = await window.api.checkForUpdates()
+      debugLog({ source: "updater", message: "Manual check result", details: result })
+      if (result.message === "Skipped in dev mode") {
+        toast('Update check skipped in development mode')
+      } else if (result.updateAvailable) {
+        toast(`New update available: v${result.updateVersion}`)
+      } else {
+        toast('No new updates available')
+      }
+    } catch (e) {
+      debugLog({ level: "error", source: "updater", message: "Update check failed", details: e })
+      toast('Failed to check for updates')
+    }
+    setIsCheckingUpdate(false)
+  }
 
   return (
     <div
@@ -47,10 +73,23 @@ export default function TitleBar() {
             ASTRA
           </span>
           <span
-            className="font-display text-[10px] font-semibold leading-none"
-            style={{ color: 'rgba(232,234,237,0.38)', letterSpacing: '0.06em' }}
+            className="font-display text-[10px] font-semibold leading-none cursor-pointer transition-all duration-200"
+            style={{
+              color: isHoveringVersion ? 'rgba(139, 92, 246, 0.9)' : 'rgba(232,234,237,0.38)',
+              letterSpacing: '0.06em'
+            }}
+            onMouseEnter={() => setIsHoveringVersion(true)}
+            onMouseLeave={() => setIsHoveringVersion(false)}
+            onClick={handleCheckUpdate}
+            title="Click to check for updates"
           >
-            v{appVersion}
+            {isCheckingUpdate ? (
+              <span className="flex items-center">
+                <span className="material-symbols-outlined animate-spin" style={{ fontSize: '10px' }}>progress_activity</span>
+              </span>
+            ) : (
+              <>v{appVersion}{isHoveringVersion && <span className="ml-0.5 opacity-60">↻</span>}</>
+            )}
           </span>
         </div>
 

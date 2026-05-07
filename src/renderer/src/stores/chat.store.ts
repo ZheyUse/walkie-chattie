@@ -149,10 +149,13 @@ export const useChatStore = create<ChatState>((set) => ({
 
   toggleReaction: async (lookupId, emoji, userId) => {
     let nextReactions: MessageReaction[] | null = null
+    let prevReactions: MessageReaction[] = []
+
     set((s) => ({
       messages: s.messages.map(m => {
         if (m.id !== lookupId && m.tmpId !== lookupId) return m
         const reactions = [...(m.reactions || [])]
+        prevReactions = [...(m.reactions || [])]
         const idx = reactions.findIndex(r => r.emoji === emoji)
         if (idx !== -1) {
           const r = reactions[idx]
@@ -181,9 +184,21 @@ export const useChatStore = create<ChatState>((set) => ({
       user_ids: r.userIds,
     }))
 
-    await supabase
+    const { error } = await supabase
       .from('messages')
       .update({ reactions: payload })
       .eq('id', lookupId)
+
+    if (error) {
+      debugLog({ level: 'error', source: 'chat', message: '[reaction] FAIL update', details: { lookupId, emoji, error: error.message } })
+      set((s) => ({
+        messages: s.messages.map(m => {
+          if (m.id !== lookupId && m.tmpId !== lookupId) return m
+          return { ...m, reactions: prevReactions }
+        })
+      }))
+    } else {
+      debugLog({ level: 'success', source: 'chat', message: '[reaction] SUCCESS', details: { lookupId, emoji, reactionCount: nextReactions.length } })
+    }
   },
 }))

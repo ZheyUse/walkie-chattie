@@ -32,13 +32,44 @@ function serializeDetails(details: unknown) {
   return details
 }
 
+let debugEnabled = false
+
+export function isDebugEnabled() {
+  return debugEnabled
+}
+
+// Initialize from localStorage on load
+if (typeof localStorage !== 'undefined') {
+  debugEnabled = localStorage.getItem('debugEnabled') === 'true'
+}
+
 export function debugLog({ level = "info", source = "renderer", message, details }: DebugPayload) {
+  // Direct local check - no IPC needed for the check itself
+  if (!debugEnabled) return
   if (!window.api?.logDebug) return
+
   window.api.logDebug({
     level,
     source,
     message,
     details: serializeDetails(details),
+  })
+}
+
+// Simple event-based debug state sync between windows
+export function setDebugEnabled(enabled: boolean) {
+  debugEnabled = enabled
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('debugEnabled', String(enabled))
+  }
+  window.api?.setDebugMode?.(enabled)
+}
+
+// Listen for debug state changes from main process
+if (typeof window !== 'undefined' && window.api?.onDebugStateChanged) {
+  window.api.onDebugStateChanged((enabled) => {
+    debugEnabled = enabled
+    localStorage?.setItem('debugEnabled', String(enabled))
   })
 }
 

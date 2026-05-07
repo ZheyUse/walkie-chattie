@@ -4,6 +4,7 @@ export type PopupData = {
   sender: string
   message: string
   gifUrl?: string
+  imageUrl?: string
   color?: string
   spaceName?: string
   spaceIcon?: string
@@ -49,6 +50,12 @@ const api = {
     ipcRenderer.send('debug-log', entry),
   getDebugLogs: () => ipcRenderer.invoke('debug-get-logs') as Promise<DebugLogEntry[]>,
   clearDebugLogs: () => ipcRenderer.send('debug-clear'),
+  setDebugMode: (enabled: boolean) => ipcRenderer.send('debug-toggle', enabled),
+  onDebugStateChanged: (callback: (enabled: boolean) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, enabled: boolean) => callback(enabled)
+    ipcRenderer.on('debug-state-changed', listener)
+    return () => ipcRenderer.removeListener('debug-state-changed', listener)
+  },
   onDebugLog: (callback: (entry: DebugLogEntry) => void) => {
     const listener = (_: Electron.IpcRendererEvent, entry: DebugLogEntry) => callback(entry)
     ipcRenderer.on('debug-log-entry', listener)
@@ -81,12 +88,17 @@ const api = {
   // Auto-updater
   restartToUpdate: () => ipcRenderer.send('restart-to-update'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates') as Promise<{ success: boolean; updateAvailable?: boolean; updateVersion?: string; error?: string; message?: string }>,
   getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
   onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => void) => {
     const listener = (_: Electron.IpcRendererEvent, data: { status: string; version?: string; percent?: number; transferred?: number; total?: number }) => callback(data)
     ipcRenderer.on('update-status', listener)
     return () => ipcRenderer.removeListener('update-status', listener)
   },
+
+  // User login/logout tracking for offline status on quit
+  userLoggedIn: (userId: string) => ipcRenderer.send('user-logged-in', userId),
+  userLoggedOut: () => ipcRenderer.send('user-logged-out'),
 }
 
 contextBridge.exposeInMainWorld('api', api)

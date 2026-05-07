@@ -1,14 +1,21 @@
 import 'material-symbols'
 import { useState, useEffect } from "react"
 import { playSound } from '../../lib/sounds'
+import { debugLog } from '../../lib/debug'
 
-interface PopupData { sender: string; message: string; gifUrl?: string }
+interface PopupData { sender: string; message: string; gifUrl?: string; imageUrl?: string }
 
 function getPopupData(): PopupData {
   try {
     const parts = window.location.hash.split("/")
-    if (parts[1] === "popup" && parts[2]) return JSON.parse(decodeURIComponent(parts[2]))
-  } catch(e) {}
+    if (parts[1] === "popup" && parts[2]) {
+      const data = JSON.parse(decodeURIComponent(parts[2]))
+      debugLog({ source: "tap-popup", message: "[SUCCESS] PopupData parsed", details: { hasImageUrl: !!data.imageUrl, imageUrl: data.imageUrl, hasGifUrl: !!data.gifUrl, gifUrl: data.gifUrl } })
+      return data
+    }
+  } catch(e) {
+    debugLog({ level: "error", source: "tap-popup", message: "[ERROR] Failed to parse PopupData", details: e })
+  }
   return { sender: "?", message: "" }
 }
 
@@ -23,6 +30,9 @@ function getTapFontSize(message: string) {
 export default function TapPopup() {
   const [data] = useState(getPopupData)
   const [countdown, setCountdown] = useState(5)
+  const [imageLoading, setImageLoading] = useState(!!(data.imageUrl || data.gifUrl))
+
+  const handleImageLoad = () => setImageLoading(false)
 
   // Play tap sound on mount
   useEffect(() => { playSound('tap') }, [])
@@ -98,9 +108,25 @@ export default function TapPopup() {
             {data.message}
           </p>
 
+          {data.imageUrl && (
+            <div className="mt-10 rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(139,92,246,0.2)' }}>
+              {imageLoading && (
+                <div className="w-full h-64 flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.05)' }}>
+                  <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: 'transparent' }} />
+                </div>
+              )}
+              <img src={data.imageUrl} alt="Image" className="max-h-64 object-contain" style={{ display: imageLoading ? 'none' : 'block' }} onLoad={handleImageLoad} />
+            </div>
+          )}
+
           {data.gifUrl && (
             <div className="mt-10 rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(139,92,246,0.2)' }}>
-              <img src={data.gifUrl} alt="GIF" className="max-h-64 object-contain" />
+              {imageLoading && (
+                <div className="w-full h-64 flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.05)' }}>
+                  <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: 'transparent' }} />
+                </div>
+              )}
+              <img src={data.gifUrl} alt="GIF" className="max-h-64 object-contain" style={{ display: imageLoading ? 'none' : 'block' }} onLoad={handleImageLoad} />
             </div>
           )}
         </div>
