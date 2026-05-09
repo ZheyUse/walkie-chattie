@@ -73,3 +73,28 @@ export function stopOnlineHeartbeat() {
     debugLog({ source: 'online-status', message: '[HEARTBEAT] Heartbeat stopped' })
   }
 }
+
+// Check if a user is online via database heartbeat (same system as MembersPanel)
+export async function isUserOnline(userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, is_online, last_seen_at')
+    .eq('id', userId)
+    .single()
+
+  if (!data) return false
+
+  // Check if user is online in database
+  if (!data.is_online) return false
+
+  // Check if heartbeat is stale (> 2 minutes)
+  const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000
+  if (data.last_seen_at) {
+    const lastSeen = new Date(data.last_seen_at).getTime()
+    if (Date.now() - lastSeen > OFFLINE_THRESHOLD_MS) {
+      return false
+    }
+  }
+
+  return true
+}

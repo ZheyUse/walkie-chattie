@@ -50,6 +50,7 @@ const api = {
     ipcRenderer.send('debug-log', entry),
   getDebugLogs: () => ipcRenderer.invoke('debug-get-logs') as Promise<DebugLogEntry[]>,
   clearDebugLogs: () => ipcRenderer.send('debug-clear'),
+  getDebugState: () => ipcRenderer.invoke('debug-get-state') as Promise<boolean>,
   setDebugMode: (enabled: boolean) => ipcRenderer.send('debug-toggle', enabled),
   onDebugStateChanged: (callback: (enabled: boolean) => void) => {
     const listener = (_: Electron.IpcRendererEvent, enabled: boolean) => callback(enabled)

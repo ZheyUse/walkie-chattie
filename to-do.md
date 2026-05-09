@@ -1,14 +1,17 @@
 Bug Tracker
 
-1. When User quit the app in the tray the offline status did not update in realtime in member panel, it only updates when I switch spaces and go back ✅
-2. when sending a message the auto scroll to the latest work, but when sending a file, Gif, or sticker it wont work ✅
-3. nickname works, but when I switch to other space and go back it reverts back to my profiles.nickname instead of the space_members.display_name ✅
-4. add feature where admin can change a members nickname using /nickname @username <nickname> ✅
-5. add a toast message when user typed /tap @username <message> and the @username is offline it will say, @username is Offline so basically only if unreachable since we also uses websocket. ✅
-6. When clicking a GIF, Sticker, Images add a image Preview modal with download button to download Images, GIF, Stickers ✅
-7. in the space details in image section, when clicking an image it somehow redirects to a browser, no it should use the image preview as well. ✅
-8. Image wont include in /shout and /tap like GIF and Sticker,  it should be included ✅
-9. Check Notification Message it still has Mojibake Corruption. Scan all the codefile for this. ✅
-10. When I enter a space, switch a space, join a space in other words at starting point it wont auto scroll to the latest message. I keep clicking the new message button just for me to see down the latest message. ✅
-11. at the top there is a App Title + version, I want when I hover to version it will turn into a mini button check update, this way user does not need to restart the app just for the new version update to show they just need to click that to fire the search if there is a new update. ✅
-12. There is weird thing going around on status, I think the Busy and Offline has been swapped, because when users are busy the status becomes offline but still they can received the shout and tap, but when they actually offline like shutdown the PC lost connection to the internet which is literally offline, it somehow becomes busy status. ✅
+1. /tap bug issue ✅
+2. App when Auto startup doesnt auto scroll down to the latest, like Opened PC it auto starts the App as usual and once in the app the space doesnt auto scroll down to the latets image, it only works when I switch spaces
+
+3. add feature for /command and @ recommendation where it can use up and down arrow to choose ✅
+4.  okay how about the /nickname it somehow still bugs where I change my nickname it uses the display_name but other members cant see it and also it goes back to profiles.nickname when I switch spaces ✅
+5. when users types /shout /tap @username and no message or argument a toast message should prevent it from sending just like the tap when user did not choose a @username like the Use /tap @username message toast message. ✅
+6. when a auto completion or the suggestion shows up when typing / or @ we know TAB wil autofill it, but I also want ENTER to do it aswell so there are two options TAB and ENTER ✅
+7. Add feature like messenger where I screenshot and ctrl+V in the chat textarea it will paste the image I screenshot and its ready to be sent ✅
+8. when a /shout has image/gif/stickers attached but not message argument it wont work, fix this because the image/gif/sticker is also already an argument ✅
+
+9. when I type /command and @username and select through up and down and hit enter or tab, it did not work for example i type @ then selects username using up and down arrow then hit ENTER it sends the @all which is at the top of the recommendations. ✅
+
+10. There is a bug in the /tap @username when hit it somehow uses the display_name instead of the nickname, so the nickname is @Moy and the display_name is Tomoy so when I type @moy and hit enter or Tab it becomes @Tomoy which flags @Tomoy member not found. ✅
+
+11. when I send a /shout or /tap with just image/gif/sticker in the messagelist it appears null but when I click it, it looks fine, just the message list not displaying the images. ✅

@@ -56,6 +56,7 @@ When sending a `/tap` to someone who's shown as offline:
 - **Debug logging enhanced** for auto-scroll, status detection, and presence tracking
 - **Better offline detection** using stale heartbeat threshold (2 minutes)
 - **`pagehide` event handler** for more reliable offline status on app close
+- **Auto-cleanup update cache** — downloaded installers are deleted after successful installation
 - **Loading animations** for images in shout/tap popups
 - **Enhanced status debug logs** show actual timestamps and thresholds
 
@@ -66,7 +67,7 @@ When sending a `/tap` to someone who's shown as offline:
 | File | Change |
 |---|---|
 | `src/preload/index.ts` | Added `checkForUpdates` API, added `imageUrl` to `PopupData` type |
-| `src/main/index.ts` | Added `check-for-updates` IPC handler, enhanced `before-quit` logging |
+| `src/main/index.ts` | Added `check-for-updates` IPC handler, enhanced `before-quit` logging, auto-cleanup of downloaded installers |
 | `src/renderer/src/components/layout/TitleBar.tsx` | Interactive version button with hover effects and click-to-check-updates |
 | `src/renderer/src/components/chat/ChatInput.tsx` | Added `imageUrl` to showShout/showTap, `/nickname` admin support, `/tap` offline toast |
 | `src/renderer/src/components/chat/MessageItem.tsx` | Added `imageUrl` to shout/tap click handlers |

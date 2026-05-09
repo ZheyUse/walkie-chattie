@@ -38,9 +38,23 @@ export function isDebugEnabled() {
   return debugEnabled
 }
 
-// Initialize from localStorage on load
+// Initialize from localStorage on load, defaulting to enabled in development
 if (typeof localStorage !== 'undefined') {
-  debugEnabled = localStorage.getItem('debugEnabled') === 'true'
+  const stored = localStorage.getItem('debugEnabled')
+  // In development, default to enabled unless explicitly disabled in localStorage
+  debugEnabled = stored !== null
+    ? stored === 'true'
+    : import.meta.env.DEV
+}
+
+// Sync initial debug state from main process
+if (typeof window !== 'undefined' && window.api) {
+  window.api.getDebugState?.().then((enabled: boolean) => {
+    debugEnabled = enabled
+    localStorage.setItem('debugEnabled', String(enabled))
+  }).catch(() => {
+    // Ignore errors - keep current debugEnabled state
+  })
 }
 
 export function debugLog({ level = "info", source = "renderer", message, details }: DebugPayload) {

@@ -150,6 +150,20 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
     },
   })
 
+  // Debug log: [INFO] - Fetch nicknames in space
+  debugLog({
+    source: "space-members-debug",
+    message: "[INFO] - Fetch nicknames in space",
+    details: {
+      spaceId,
+      memberCount: members.length,
+      displayNames: members.reduce((acc, m) => {
+        acc[m.user_id] = { display_name: m.display_name }
+        return acc
+      }, {} as Record<string, { display_name: string | null }>),
+    },
+  })
+
   const ids = members.map((m) => m.user_id)
   const { data: profiles, error: profilesError } = await withTimeout(
     Promise.resolve(
@@ -184,6 +198,10 @@ async function loadSpaceMembers(space: Space, setMembers: (m: Member[]) => void)
       activeSpaceId,
       enrichedCount: enrichedMembers.length,
       mismatchCount: mismatchMembers.length,
+      enrichedDisplayNames: enrichedMembers.reduce((acc, m) => {
+        acc[m.user_id] = { nickname: m.nickname, display_name: m.display_name }
+        return acc
+      }, {} as Record<string, { nickname: string; display_name: string | null }>),
     },
   })
 
@@ -325,6 +343,10 @@ async function loadExistingSpace(
     message: "Existing space loaded",
     details: { spaceId: space.id, name: space.name },
   })
+  // Save last active space so it restores on restart
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('lastActiveSpaceId', space.id)
+  }
   setSpace(space)
   setSpaces(allSpaces ?? [])
   await loadSpaceMembers(space, setMembers)
@@ -468,12 +490,14 @@ export default function App() {
             debugLog({ source: "auth", message: "Stored Supabase session found", details: { userId: session.user.id } })
             setSession(session)
             loadProfile(session.user.id, setProfile)
+            setReady(true)  // Set ready AFTER session is set
           } else {
             debugLog({ source: "auth", message: "No stored Supabase session" })
             setProfile(null)
             setSpace(null)
             setMembers([])
             setSpacesReady(true)
+            setReady(true)
           }
         }).catch((error) => {
           debugLog({ level: "error", source: "auth", message: "Stored Supabase session check crashed, was blocked, or timed out", details: error })
@@ -481,9 +505,11 @@ export default function App() {
           setSpace(null)
           setMembers([])
           setSpacesReady(true)
+          setReady(true)
         })
+      } else {
+        setReady(true)  // For OAuth redirect case
       }
-      setReady(true)
     }).catch((error) => {
       debugLog({ level: "error", source: "auth", message: "Initial auth bootstrap crashed", details: error })
       setProfile(null)

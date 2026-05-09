@@ -1,4 +1,4 @@
-﻿import 'material-symbols'
+﻿import { isUserOnline } from "../../lib/online-status"
 import { useState, useRef, useCallback, useEffect } from "react"
 import { supabase } from "../../lib/supabase"
 import { useAuthStore } from "../../stores/auth.store"
@@ -39,6 +39,7 @@ export default function ChatInput() {
   const [mentionQuery, setMentionQuery] = useState("")
   const [cmdActive, setCmdActive] = useState(false)
   const [cmdQuery, setCmdQuery] = useState("")
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
 
   const pendingImage = useChatStore(s => s.pendingImage)
   const setPendingImage = useChatStore(s => s.setPendingImage)
@@ -104,6 +105,30 @@ export default function ChatInput() {
     return () => window.removeEventListener('focus-chat-input', handler)
   }, [])
 
+  // Handle paste event for images (screenshot + Ctrl+V)
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          e.stopPropagation()
+          const file = item.getAsFile()
+          if (file) {
+            debugLog({ source: "chat", message: "Image pasted from clipboard", details: { type: item.type, size: file.size } })
+            setPendingImage(file)
+          }
+          break
+        }
+      }
+    }
+
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [setPendingImage])
+
   const cancelEdit = () => {
     setEditingMessage(null)
     setValue('')
@@ -129,9 +154,8 @@ export default function ChatInput() {
   const findMemberByName = (raw: string) => {
     const needle = normalizeName(raw)
     return members.find(m => {
-      const displayKey = m.display_name ? normalizeName(m.display_name) : ''
       const nicknameKey = normalizeName(m.nickname)
-      return displayKey === needle || nicknameKey === needle
+      return nicknameKey === needle
     })
   }
 
@@ -171,9 +195,15 @@ export default function ChatInput() {
     let theContent = trimmed
     let targetUserId: string | null = null
     let targetNickname: string | null = null
-    if (cmd === "shout") theContent = trimmed.replace(/^\/shout\s+/, '')
+    if (cmd === "shout") {
+      theContent = trimmed.replace(/^\/shout\s*/, '')
+      if (!theContent.trim() && !pendingGifUrl && !pendingImage) {
+        toast('Use /shout <message>')
+        return
+      }
+    }
     if (cmd === "tap") {
-      theContent = trimmed.replace(/^\/tap\s+/, '')
+      theContent = trimmed.replace(/^\/tap\s*/, '')
       debugLog({ source: "chat", message: "Tap after slice", details: { content: theContent } })
       let rawTapNick = ''
       const mentionMatch = theContent.match(/^@(\S+)\s+/)
@@ -214,15 +244,19 @@ export default function ChatInput() {
       }
 
       if (!targetUserId || !targetNickname) {
-        toast(rawTapNick ? `Member "${rawTapNick}" not found` : 'Use /tap @username message')
+        toast(rawTapNick ? `Member "${rawTapNick}" not found` : 'Use /tap @username <message>')
         return
       }
 
-      // Check if target user is online (presence-based) - informational only
-      // Don't block based on presence - bugs in presence status could cause false offline detection
+      // Check for empty message after @username
+      if (!theContent.trim() && !pendingGifUrl && !pendingImage) {
+        toast('Use /tap @username <message>')
+        return
+      }
+
+      // Check if target user is online (database heartbeat-based) - informational only
       // The tap will reach the user if they're reachable, regardless of presence status
-      const onlineUsers = useSpaceStore.getState().onlineUsers
-      const isTargetOnline = onlineUsers.has(targetUserId)
+      const isTargetOnline = await isUserOnline(targetUserId)
       debugLog({ source: "chat", message: "Tap: checking online status", details: { targetUserId, isTargetOnline, targetNickname } })
       if (!isTargetOnline) {
         toast(`@${targetNickname} is Offline`, { duration: 2000 })
@@ -261,7 +295,11 @@ export default function ChatInput() {
       setValue("")
       return
     }
-    if (cmd === "all") theContent = trimmed.replace(/^\/all\s+/, '')
+    if (cmd === "all") theContent = trimmed.replace(/^\/all\s*/, '')
+    if (!theContent.trim() && !pendingGifUrl && !pendingImage) {
+      toast('Use /all <message>')
+      return
+    }
 
     if (cmd === "nickname") {
       const args = trimmed.replace(/^\/nickname\s+/, '').trim()
@@ -287,10 +325,12 @@ export default function ChatInput() {
           .eq('space_id', currentSpace.id)
           .eq('user_id', targetMember.user_id)
         if (error) {
+          debugLog({ level: 'error', source: 'chat', message: '[ERROR] - change nickname failed', details: { userId: targetMember.user_id, spaceId: currentSpace.id, newDisplayName: newName, error } })
           toast('Nickname update failed')
           return
         }
         useSpaceStore.getState().setMembers(members.map(m => m.user_id === targetMember.user_id ? { ...m, display_name: newName } : m))
+        debugLog({ source: 'chat', message: '[SUCCESS] - change nickname', details: { userId: targetMember.user_id, spaceId: currentSpace.id, targetNickname: targetMember.nickname, oldDisplayName: targetMember.display_name, newDisplayName: newName } })
         toast(`${targetMember.nickname}'s nickname changed to "${newName}"`)
         setValue('')
         return
@@ -298,17 +338,21 @@ export default function ChatInput() {
 
       // Original: /nickname <newname> (change own nickname)
       if (!args) { toast('Use /nickname <newname> or /nickname @username <newname>'); return }
+      const myMember = members.find(m => m.user_id === profile.id && m.space_id === currentSpace.id)
+      const oldDisplayName = myMember?.display_name ?? null
+      debugLog({ source: 'chat', message: '[INFO] - change nickname', details: { userId: profile.id, spaceId: currentSpace.id, oldDisplayName, newDisplayName: args } })
       const { error } = await supabase
         .from('space_members')
         .update({ display_name: args })
         .eq('space_id', currentSpace.id)
         .eq('user_id', profile.id)
       if (error) {
-        debugLog({ level: 'error', source: 'chat', message: 'Nickname update failed', details: error })
+        debugLog({ level: 'error', source: 'chat', message: '[ERROR] - change nickname failed', details: { userId: profile.id, spaceId: currentSpace.id, newDisplayName: args, error } })
         toast('Nickname update failed')
         return
       }
       useSpaceStore.getState().setMembers(members.map(m => m.user_id === profile.id ? { ...m, display_name: args } : m))
+      debugLog({ source: 'chat', message: '[SUCCESS] - change nickname', details: { userId: profile.id, spaceId: currentSpace.id, profileNickname: profile.nickname, oldDisplayName, newDisplayName: args } })
       toast('Nickname updated')
       setValue('')
       return
@@ -445,24 +489,81 @@ export default function ChatInput() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      if (editingMessage) {
-        submitEdit()
+      // Enter accepts suggestions when active, otherwise sends message
+      if (mentionActive && !editingMessage) {
+        e.preventDefault()
+        const queryLower = mentionQuery.toLowerCase()
+        const atAllMatch = 'all'.startsWith(queryLower) || queryLower === ''
+
+        // Build the same items list as WhisperSuggest
+        const nicknameMatches = members.filter(m => m.nickname.toLowerCase().includes(queryLower))
+        const displayMatches = members.filter(m =>
+          !m.nickname.toLowerCase().includes(queryLower) &&
+          m.display_name?.toLowerCase().includes(queryLower)
+        )
+        type ItemEntry = { type: 'member'; member: typeof members[0]; matchType: 'nickname' | 'display' }
+        const combinedItems: ItemEntry[] = [
+          ...nicknameMatches.map(m => ({ type: 'member' as const, member: m, matchType: 'nickname' as const })),
+          ...displayMatches.map(m => ({ type: 'member' as const, member: m, matchType: 'display' as const })),
+        ]
+        const allItems: Array<{ type: 'all' } | ItemEntry> = []
+        if (atAllMatch || queryLower === '') allItems.push({ type: 'all' })
+        combinedItems.forEach(item => allItems.push(item))
+
+        const idx = selectedMentionIndex
+        const item = allItems[idx]
+        if (!item) return
+        if (item.type === 'all') {
+          handleMentionSelect('__bold__@all')
+        } else {
+          const nameToSelect = item.matchType === 'display'
+            ? item.member.display_name?.trim() || item.member.nickname
+            : item.member.nickname
+          handleMentionSelect(nameToSelect)
+        }
+      } else if (cmdActive) {
+        // CommandSuggest handles Enter via document listener - do nothing here
       } else {
-        send()
+        e.preventDefault()
+        if (editingMessage) {
+          submitEdit()
+        } else {
+          send()
+        }
       }
     }
-    // When @mention is active, Tab accepts the correct suggestion
+    // When @mention is active, Tab accepts the correct suggestion (same priority logic)
     if (e.key === "Tab" && mentionActive && !editingMessage) {
       e.preventDefault()
       e.stopPropagation()
       const queryLower = mentionQuery.toLowerCase()
       const atAllMatch = 'all'.startsWith(queryLower) || queryLower === ''
-      if (atAllMatch) {
+
+      // Build the same items list as WhisperSuggest
+      const nicknameMatches = members.filter(m => m.nickname.toLowerCase().includes(queryLower))
+      const displayMatches = members.filter(m =>
+        !m.nickname.toLowerCase().includes(queryLower) &&
+        m.display_name?.toLowerCase().includes(queryLower)
+      )
+      type ItemEntry2 = { type: 'member'; member: typeof members[0]; matchType: 'nickname' | 'display' }
+      const combinedItems: ItemEntry2[] = [
+        ...nicknameMatches.map(m => ({ type: 'member' as const, member: m, matchType: 'nickname' as const })),
+        ...displayMatches.map(m => ({ type: 'member' as const, member: m, matchType: 'display' as const })),
+      ]
+      const allItems: Array<{ type: 'all' } | ItemEntry2> = []
+      if (atAllMatch || queryLower === '') allItems.push({ type: 'all' })
+      combinedItems.forEach(item => allItems.push(item))
+
+      const idx = selectedMentionIndex
+      const item = allItems[idx]
+      if (!item) return
+      if (item.type === 'all') {
         handleMentionSelect('__bold__@all')
       } else {
-        const match = members.find(m => (m.display_name?.trim() || m.nickname).toLowerCase().includes(queryLower))
-        if (match) handleMentionSelect(match.display_name?.trim() || match.nickname)
+        const nameToSelect = item.matchType === 'display'
+          ? item.member.display_name?.trim() || item.member.nickname
+          : item.member.nickname
+        handleMentionSelect(nameToSelect)
       }
     }
     if (e.key === "Escape") {
@@ -745,6 +846,7 @@ export default function ChatInput() {
           members={members}
           onSelect={handleMentionSelect}
           onClose={() => setMentionActive(false)}
+          onSelectedIndexChange={setSelectedMentionIndex}
         />
       )}
 

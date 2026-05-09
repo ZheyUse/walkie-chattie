@@ -78,7 +78,6 @@ export default function MembersPanel() {
     const isOnline = globalOnlineUsers.has(member.user_id)
 
     if (!isOnline) {
-      debugLog({ source: 'status-debug', message: 'Status: OFFLINE', details: { nickname: member.nickname, reason: 'not in globalOnlineUsers' } })
       return 'offline'
     }
 
@@ -87,7 +86,6 @@ export default function MembersPanel() {
     const lastSeen = lastSeenTimestamps[member.user_id]
     const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
     if (lastSeen && Date.now() - lastSeen > OFFLINE_THRESHOLD_MS) {
-      debugLog({ source: 'status-debug', message: 'Status: OFFLINE (stale heartbeat)', details: { nickname: member.nickname, lastSeen, idleTimeMs: Date.now() - lastSeen, thresholdMs: OFFLINE_THRESHOLD_MS } })
       return 'offline'
     }
 
@@ -115,11 +113,9 @@ export default function MembersPanel() {
     // Check if user is busy (idle for 10+ minutes) based on last_seen_at (reuse lastSeen from above)
     const idleTime = lastSeen ? Date.now() - lastSeen : 0
     if (lastSeen && idleTime >= 10 * 60 * 1000) {
-      debugLog({ source: 'status-debug', message: 'Status: BUSY (idle)', details: { nickname: member.nickname, userId: member.user_id, lastSeen, idleTimeMs: idleTime } })
       return 'busy'
     }
 
-    debugLog({ source: 'status-debug', message: 'Status: ONLINE', details: { nickname: member.nickname, userId: member.user_id, lastSeen, idleTimeMs: idleTime } })
     return 'online'
   }
 

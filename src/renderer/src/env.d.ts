@@ -36,6 +36,7 @@ interface Window {
       details?: unknown
     }>>
     clearDebugLogs: () => void
+    getDebugState: () => Promise<boolean>
     setDebugMode: (enabled: boolean) => void
     onDebugStateChanged: (callback: (enabled: boolean) => void) => () => void
     onDebugLog: (callback: (entry: {

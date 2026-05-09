@@ -7,6 +7,7 @@ import { useChatStore, type Message } from '../../stores/chat.store'
 import { applyPresenceLastActive } from "../../lib/presence"
 import { useAuthStore } from '../../stores/auth.store'
 import MessageItem from './MessageItem'
+import Loader from '../ui/Loader'
 import { debugLog } from '../../lib/debug'
 import { triggerNotification } from '../../lib/notifications'
 
@@ -26,44 +27,13 @@ export default function MessageList() {
   const isOwnMessageInsertRef = useRef(false)
   const messageCacheRef = useRef<Map<string, Message[]>>(new Map())
   const [showJumpBtn, setShowJumpBtn] = useState(false)
-
-  // Pagination state
+  const [initialLoading, setInitialLoading] = useState(true)
   const [pageOffset, setPageOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const prevMessagesLenRef = useRef(0)
 
   useEffect(() => { profileIdRef.current = profile?.id }, [profile?.id])
-
-  // Scroll to bottom when messages first load OR when space changes
-  useEffect(() => {
-    // Don't scroll on pagination prepends
-    if (messages.length === 0 || pageOffset > 0) return
-    if (!listRef.current) return
-
-    debugLog({ source: "auto-scroll", message: "[DEBUG] Scroll effect triggered", details: { messagesLength: messages.length, pageOffset, currentSpace: currentSpace?.id } })
-
-    isAtBottomRef.current = true
-    autoScrollRef.current = true
-
-    // Use a small delay to ensure DOM has rendered
-    const scrollTimeout = setTimeout(() => {
-      if (listRef.current) {
-        const maxScroll = listRef.current.scrollHeight - listRef.current.clientHeight
-        listRef.current.scrollTop = maxScroll
-        debugLog({ source: "auto-scroll", message: "[SUCCESS] Scroll to bottom", details: {
-          scrollHeight: listRef.current.scrollHeight,
-          clientHeight: listRef.current.clientHeight,
-          maxScroll: maxScroll,
-          scrollTopAfter: listRef.current.scrollTop,
-        }})
-      } else {
-        debugLog({ level: "error", source: "auto-scroll", message: "[ERROR] listRef.current is null", details: {} })
-      }
-    }, 50)
-
-    return () => clearTimeout(scrollTimeout)
-  }, [messages.length, pageOffset, currentSpace?.id])
 
   // Normalize raw reactions from DB to UI format
   const normalizeReactions = (raw: unknown): Message['reactions'] => {
@@ -82,8 +52,12 @@ export default function MessageList() {
   const fetchMessages = (offset: number, resetLoad = false) => {
     if (!currentSpace) return
 
-    if (resetLoad) setMessages([])
-    else setLoadingOlder(true)
+    if (resetLoad) {
+      setMessages([])
+      setInitialLoading(true)
+    } else {
+      setLoadingOlder(true)
+    }
 
     // Fetch newest messages first, then reverse for display
     supabase
@@ -103,7 +77,7 @@ export default function MessageList() {
 
         if (offset === 0) {
           setMessages(formatted)
-          debugLog({ source: "auto-scroll", message: "[DEBUG] Messages set for new space", details: { count: formatted.length, offset } })
+          setInitialLoading(false)
         } else {
           // When loading older (scrolling up), prepend older messages at the BEGINNING
           setMessages([...formatted, ...useChatStore.getState().messages])
@@ -458,6 +432,23 @@ export default function MessageList() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }
 
+  // On initial load, scroll to bottom (visual bottom of chronologically ordered list)
+  // This makes the latest messages visible without requiring a manual scroll
+  useEffect(() => {
+    if (messages.length === 0 || pageOffset > 0) return
+    if (!listRef.current) return
+
+    // Scroll to bottom after a short delay to ensure DOM is rendered
+    const timeoutId = setTimeout(() => {
+      if (listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight
+      }
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [messages.length, pageOffset, currentSpace?.id])
+
+  // Render messages in chronological order (oldest to newest)
   var visible = messages
   if (searchQuery.trim()) {
     var q = searchQuery.toLowerCase()
@@ -483,7 +474,14 @@ export default function MessageList() {
           </div>
         )}
 
-        {messages.length === 0 && !loadingOlder && (
+        {initialLoading ? (
+          <div className='flex-1 flex items-center justify-center'>
+            <div className='flex flex-col items-center gap-3'>
+              <Loader />
+              <p className='text-text-lo text-sm'>Loading messages...</p>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
           <div className='flex-1 flex items-center justify-center'>
             <div className='flex flex-col items-center gap-3'>
               <div
@@ -495,9 +493,9 @@ export default function MessageList() {
               <p className='text-text-lo text-sm'>No messages yet. Start the conversation.</p>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {visible.map(function(msg, i) {
+        {!initialLoading && messages.length > 0 && visible.map(function(msg, i) {
           var prev = visible[i - 1]
           var showAvatar = !prev || prev.sender_id !== msg.sender_id ||
             new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000

@@ -274,7 +274,9 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
           style={{ background: 'linear-gradient(135deg, rgba(232,101,42,0.18) 0%, rgba(180,50,20,0.1) 100%)', border: '1px solid rgba(232,101,42,0.25)', borderLeft: '3px solid rgba(232,101,42,0.6)' }}
         >
           {renderReplyPreview()}
-          <div className={"text-shout font-display font-bold " + shoutFont(msg.content || '')} style={{ textShadow: '0 0 20px rgba(232,101,42,0.3)' }}>{msg.content}</div>
+          {msg.gif_url && <img src={msg.gif_url} alt='GIF' className='max-h-48 rounded-lg object-contain mb-1.5 cursor-pointer hover:opacity-80 transition-opacity' onClick={(e) => { e.stopPropagation(); setPreviewUrl(msg.gif_url); setPreviewType('gif') }} />}
+          {msg.image_url && <img src={msg.image_url} alt='Image' className='max-h-64 rounded-lg object-contain mb-1.5 cursor-pointer hover:opacity-80 transition-opacity' onClick={(e) => { e.stopPropagation(); setPreviewUrl(msg.image_url); setPreviewType('image') }} />}
+          {msg.content && <div className={"text-shout font-display font-bold " + shoutFont(msg.content)} style={{ textShadow: '0 0 20px rgba(232,101,42,0.3)' }}>{msg.content}</div>}
         </div>
       )
     }
@@ -289,7 +291,9 @@ export default function MessageItem({ msg, showAvatar = true, showNickname = tru
           style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(109,40,217,0.06) 100%)', border: '1px solid rgba(139,92,246,0.2)', borderLeft: '3px solid rgba(139,92,246,0.5)' }}
         >
           {renderReplyPreview()}
-          <div style={{ color: 'rgba(167,139,250,0.85)', fontSize: '0.8125rem' }} className='font-body italic line-clamp-3'>{msg.content}</div>
+          {msg.gif_url && <img src={msg.gif_url} alt='GIF' className='max-h-48 rounded-lg object-contain mb-1.5 cursor-pointer hover:opacity-80 transition-opacity' onClick={(e) => { e.stopPropagation(); setPreviewUrl(msg.gif_url); setPreviewType('gif') }} />}
+          {msg.image_url && <img src={msg.image_url} alt='Image' className='max-h-64 rounded-lg object-contain mb-1.5 cursor-pointer hover:opacity-80 transition-opacity' onClick={(e) => { e.stopPropagation(); setPreviewUrl(msg.image_url); setPreviewType('image') }} />}
+          {msg.content && <div style={{ color: 'rgba(167,139,250,0.85)', fontSize: '0.8125rem' }} className='font-body italic line-clamp-3'>{msg.content}</div>}
         </div>
       )
     }

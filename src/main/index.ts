@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, Menu, Tray, nativeImage, Notification, globalShortcut } from "electron"
 import { join, resolve } from "path"
+import { rm } from "fs/promises"
 import { autoUpdater } from "electron-updater"
 import { createClient } from "@supabase/supabase-js"
 
@@ -427,7 +428,8 @@ app.whenReady().then(() => {
   ipcMain.on("debug-clear", () => { debugLogs.length = 0 })
 
   // IPC: toggle debug mode across all windows
-  let globalDebugEnabled = false
+  let globalDebugEnabled = !app.isPackaged // Default to enabled in development
+  addDebugLog("info", "main-process", `Debug mode defaulting to ${globalDebugEnabled ? 'ENABLED' : 'DISABLED'} (isPackaged: ${app.isPackaged})`)
   ipcMain.on("debug-toggle", (_, enabled: boolean) => {
     globalDebugEnabled = enabled
     // Broadcast to all windows
@@ -503,8 +505,16 @@ app.whenReady().then(() => {
   })
 
   // IPC: install downloaded update and restart
-  ipcMain.on("restart-to-update", () => {
+  ipcMain.on("restart-to-update", async () => {
     isQuitting = true
+    // Clean up downloaded installer before restart
+    try {
+      const updateDir = join(app.getPath("userData"), "Update")
+      await rm(updateDir, { recursive: true, force: true })
+      addDebugLog("info", "updater", "Cleaned up update cache", { updateDir })
+    } catch (err) {
+      addDebugLog("warn", "updater", "Failed to clean up update cache", { error: String(err) })
+    }
     autoUpdater.quitAndInstall()
   })
 
